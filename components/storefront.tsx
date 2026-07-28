@@ -169,6 +169,41 @@ function ProductCard({ product }: { product: Product }) {
   </article>;
 }
 
+function BeforeAfterComparison() {
+  const [position, setPosition] = useState(50);
+  return <section className="section comparison-section">
+    <div className="container">
+      <div className="comparison-heading">
+        <div><span className="eyebrow">DOCUMENTATION WORKFLOW / FICTIONAL</span><h2>From intake to documented release</h2></div>
+        <p>Drag the divider to compare an incoming fictional material with its organized product and documentation system.</p>
+      </div>
+      <div className="comparison-frame" style={{ "--comparison-position": `${position}%` } as React.CSSProperties}>
+        <Image className="comparison-image comparison-before" src="/velle-intake.png" width={1536} height={1024} unoptimized alt="Fictional Velle research vial at material intake" />
+        <div className="comparison-after-wrap">
+          <Image className="comparison-image comparison-after" src="/velle-release.png" width={1536} height={1024} unoptimized alt="The same fictional Velle vial with organized packaging and documentation" />
+        </div>
+        <span className="comparison-label comparison-label-before">BEFORE / INTAKE</span>
+        <span className="comparison-label comparison-label-after">AFTER / DOCUMENTED</span>
+        <div className="comparison-divider" aria-hidden="true">
+          <span className="comparison-handle"><ArrowLeft /><ArrowRight /></span>
+        </div>
+        <input
+          className="comparison-range"
+          type="range"
+          min="0"
+          max="100"
+          value={position}
+          onChange={event => setPosition(Number(event.target.value))}
+          aria-label="Compare material intake with documented release"
+          aria-valuetext={`Divider at ${position}%`}
+        />
+        <output className="comparison-progress" aria-live="polite">{position}%</output>
+      </div>
+      <div className="comparison-caption"><span>Incoming material</span><span>Drag or use arrow keys</span><span>Documented system</span></div>
+    </div>
+  </section>;
+}
+
 function HomePage() {
   const hero = products[0];
   return <main>
@@ -178,6 +213,7 @@ function HomePage() {
     </section>
     <section className="trust-band"><div className="container trust-grid"><div><span>01</span><strong>Identity</strong><p>Keep each record connected to the material it describes.</p></div><div><span>02</span><strong>Documentation</strong><p>Surface methods, dates, status, and limitations in context.</p></div><div><span>03</span><strong>Traceability</strong><p>Follow a fictional batch from release through the demo order.</p></div></div></section>
     <section className="system-image-section container"><Image src="/velle-system.png" width={1536} height={1024} unoptimized alt="Velle fictional vial and packaging system arranged on a stone plinth" /><div><span className="eyebrow">PRODUCT SYSTEM / FICTIONAL</span><strong>Material, packaging, and record—considered together.</strong></div></section>
+    <BeforeAfterComparison />
     <section className="section container"><div className="section-head"><div><span className="eyebrow">FEATURED MATERIALS</span><h2>A considered research catalog</h2></div><Link href="/shop" className="text-link">View all 12 <ArrowRight /></Link></div><div className="product-grid">{products.slice(0,4).map(p => <ProductCard key={p.id} product={p} />)}</div></section>
     <section className="section quality-feature"><div className="container split"><div className="quality-panel"><span className="eyebrow">DEMO QUALITY SYSTEM</span><h2>See the record behind the label</h2><p>Every status and result in this prototype is marked as fictional. The interface demonstrates how genuine documentation could remain connected to product, batch, and order.</p><Button asChild variant="outline"><Link href="/quality">Explore the process</Link></Button></div><MockReport /></div></section>
     <section className="section container"><div className="editorial-intro"><span className="eyebrow">RESEARCH NOTES</span><h2>Clarity before interpretation</h2><p>Short primers explain how to read documentation without turning analytical data into human-use claims.</p></div><div className="article-grid">{articles.slice(0,3).map((a,i)=><ArticleCard key={a.slug} article={a} index={i+1}/>)}</div></section>

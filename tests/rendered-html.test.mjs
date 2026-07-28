@@ -19,6 +19,11 @@ test("renders the Velle storefront and production metadata", async () => {
   const html = await response.text();
   assert.match(html, /<title>Velle Research — documented by batch<\/title>/);
   assert.match(html, /Precision begins with verification/);
+  assert.match(html, /From intake to documented release/);
+  assert.match(html, /Compare material intake with documented release/);
+  assert.match(html, /BEFORE \/ INTAKE/);
+  assert.match(html, /AFTER \/ DOCUMENTED/);
+  assert.match(html, /comparison-progress/);
   assert.match(html, /FICTIONAL RESEARCH MATERIALS/);
   assert.match(html, /twitter:card/);
   assert.match(html, /\/og\.png/);
