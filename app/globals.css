@@ -21,3 +21,15 @@
 :focus-visible{outline:3px solid rgba(98,117,123,.4);outline-offset:3px}
 .system-image-section{padding-top:80px;position:relative}.system-image-section img{width:100%;height:clamp(420px,58vw,730px);object-fit:cover;border-radius:20px}.system-image-section>div{position:absolute;left:55px;bottom:35px;background:rgba(255,255,255,.9);backdrop-filter:blur(12px);padding:20px 24px;border-radius:12px;max-width:410px;display:flex;flex-direction:column;gap:12px}.system-image-section strong{font-size:19px;line-height:1.35;font-weight:400}
 @media(max-width:760px){.system-image-section{padding-top:45px}.system-image-section img{height:430px}.system-image-section>div{position:static;margin-top:12px;border:1px solid var(--q-line)}}
+
+/* Refined display scale: preserve the editorial hierarchy without overwhelming the page. */
+.hero-copy h1,.not-found h1{font-size:clamp(44px,5.6vw,82px)}
+.page-hero h1{font-size:clamp(42px,5vw,72px)}
+.purchase-panel h1{font-size:clamp(40px,4.3vw,64px)}
+.article-layout article h1{font-size:clamp(42px,5vw,68px)}
+.confirmation h1{font-size:60px}
+@media(max-width:760px){
+  .hero-copy h1,.page-hero h1,.not-found h1{font-size:44px}
+  .purchase-panel h1{font-size:46px}
+  .article-layout article h1,.confirmation h1{font-size:44px}
+}
