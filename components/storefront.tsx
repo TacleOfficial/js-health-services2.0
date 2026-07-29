@@ -82,6 +82,13 @@ function ProductCard({ product }: { product: Product }) {
     addToCart(product.id, product.variants[0].id);
     toast({ title: "Added to cart", description: `${product.name} · ${product.variants[0].label}` });
   }
+  function handleCompare() {
+    if (!compare.includes(product.id) && compare.length >= 3) {
+      toast({ title: "Comparison is full", description: "Remove a product before adding another." });
+      return;
+    }
+    toggleCompare(product.id);
+  }
   return <article className="product-card">
     <Link href={`/products/${product.slug}`}><ProductVisual product={product} /></Link>
     <button className={`favorite ${favorites.includes(product.id) ? "active" : ""}`} onClick={() => toggleFavorite(product.id)} aria-label={`Favorite ${product.name}`}><Heart /></button>
@@ -89,7 +96,7 @@ function ProductCard({ product }: { product: Product }) {
       <div className="badge-line"><Badge tone={product.documentStatus === "Batch verified" ? "verified" : product.documentStatus === "Testing pending" ? "warm" : "neutral"}>{product.documentStatus}</Badge><span className={product.status === "Low stock" ? "stock-low" : ""}>{product.status}</span></div>
       <Link href={`/products/${product.slug}`}><h3>{product.name}</h3></Link><p>{product.descriptor}</p>
       <div className="product-meta"><span>{product.variants[0].amount}</span><strong>From {money(product.variants[0].price)}</strong></div>
-      <div className="product-actions"><Button disabled={disabled} onClick={quickAdd}>{disabled ? "Unavailable" : "Quick add"}</Button><Tooltip.Provider><Tooltip.Root><Tooltip.Trigger asChild><button className={`compare-button ${compare.includes(product.id) ? "active" : ""}`} onClick={() => toggleCompare(product.id)} aria-label={`Compare ${product.name}`}><SlidersHorizontal /></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="tooltip">Compare product<Tooltip.Arrow /></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider></div>
+      <div className="product-actions"><Button disabled={disabled} onClick={quickAdd}>{disabled ? "Unavailable" : "Quick add"}</Button><Tooltip.Provider><Tooltip.Root><Tooltip.Trigger asChild><button className={`compare-button ${compare.includes(product.id) ? "active" : ""}`} aria-pressed={compare.includes(product.id)} onClick={handleCompare} aria-label={`${compare.includes(product.id) ? "Remove" : "Add"} ${product.name} ${compare.includes(product.id) ? "from" : "to"} comparison`}><SlidersHorizontal /></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="tooltip">{compare.includes(product.id) ? "Remove from comparison" : "Add to comparison"}<Tooltip.Arrow /></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider></div>
     </div>
   </article>;
 }
@@ -131,6 +138,7 @@ function BeforeAfterComparison() {
 
 function HomePage() {
   const hero = products[0];
+  const { compare } = useDemo();
   return <main>
     <section className="hero container">
       <div className="hero-copy"><Badge>DOCUMENTED RESEARCH MATERIALS</Badge><h1>Precision begins with verification</h1><p>Fictional research products presented with clear batch records, direct specifications, and no unsupported promises.</p><div className="hero-actions"><Button asChild size="lg"><Link href="/get-started">Find your Velle match <ArrowRight /></Link></Button><Button asChild variant="outline" size="lg"><Link href="/shop">Browse products</Link></Button><Button asChild variant="ghost" size="lg"><Link href="/batch">Verify a demo batch</Link></Button></div><div className="hero-proof"><span><FileCheck2 /> Batch-linked records</span><span><ShieldCheck /> Transparent status</span><span><PackageCheck /> Documented handling</span></div></div>
@@ -139,7 +147,7 @@ function HomePage() {
     <section className="trust-band"><div className="container trust-grid"><div><span>01</span><strong>Identity</strong><p>Keep each record connected to the material it describes.</p></div><div><span>02</span><strong>Documentation</strong><p>Surface methods, dates, status, and limitations in context.</p></div><div><span>03</span><strong>Traceability</strong><p>Follow a fictional batch from release through the demo order.</p></div></div></section>
     <section className="system-image-section container"><Image src="/velle-system.png" width={1536} height={1024} unoptimized alt="Velle fictional vial and packaging system arranged on a stone plinth" /><div><span className="eyebrow">PRODUCT SYSTEM / FICTIONAL</span><strong>Material, packaging, and record—considered together.</strong></div></section>
     <BeforeAfterComparison />
-    <section className="section container"><div className="section-head"><div><span className="eyebrow">FEATURED MATERIALS</span><h2>A considered research catalog</h2></div><Link href="/shop" className="text-link">View all 12 <ArrowRight /></Link></div><div className="product-grid">{products.slice(0,4).map(p => <ProductCard key={p.id} product={p} />)}</div></section>
+    <section className="section container"><div className="section-head"><div><span className="eyebrow">FEATURED MATERIALS</span><h2>A considered research catalog</h2></div><Link href="/shop" className="text-link">View all 12 <ArrowRight /></Link></div><CompareSelectionBar selectedIds={compare}/><div className="product-grid">{products.slice(0,4).map(p => <ProductCard key={p.id} product={p} />)}</div></section>
     <section className="section quality-feature"><div className="container split"><div className="quality-panel"><span className="eyebrow">DEMO QUALITY SYSTEM</span><h2>See the record behind the label</h2><p>Every status and result in this prototype is marked as fictional. The interface demonstrates how genuine documentation could remain connected to product, batch, and order.</p><Button asChild variant="outline"><Link href="/quality">Explore the process</Link></Button></div><MockReport /></div></section>
     <section className="section container"><div className="editorial-intro"><span className="eyebrow">RESEARCH NOTES</span><h2>Clarity before interpretation</h2><p>Short primers explain how to read documentation without turning analytical data into human-use claims.</p></div><div className="article-grid">{articles.slice(0,3).map((a,i)=><ArticleCard key={a.slug} article={a} index={i+1}/>)}</div></section>
     <FaqSection />
@@ -158,7 +166,7 @@ function ShopPage() {
   return <main><PageHero eyebrow="CATALOG / 12 MATERIALS" title="Research products, documented by batch" text="Browse a fictional catalog designed around clear specifications and visible documentation states." />
     <section className="container shop-section"><div className="shop-tools"><label className="search-box"><Search /><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search materials or research area" aria-label="Search products" /></label><Select value={sort} onChange={e=>setSort(e.target.value)} aria-label="Sort products"><option value="featured">Featured first</option><option value="price-low">Price: low to high</option><option value="name">Name</option></Select></div>
       <div className="filter-row">{categories.map(c=><button key={c} className={category===c?"active":""} onClick={()=>setCategory(c)}>{c}</button>)}</div>
-      {compare.length > 0 && <div className="compare-bar"><span>{compare.length}/3 selected for comparison</span><Button asChild variant="outline" size="sm"><Link href="/compare">Compare selected</Link></Button></div>}
+      <CompareSelectionBar selectedIds={compare}/>
       <div className="results-line"><span>{list.length} products</span><span>All content is fictional</span></div>
       {list.length ? <div className="product-grid">{list.map(p=><ProductCard key={p.id} product={p}/>)}</div> : <EmptyState title="No materials found" text="Try another search or clear the current category." action={()=>{setQuery("");setCategory("All")}} />}
     </section></main>;
@@ -241,6 +249,16 @@ function CheckoutPage(){const {cart,completeOrder}=useDemo();const [step,setStep
   </div><OrderSummary pricing={pricing} checkout/></section></main>}
 
 function ComparePage(){const {compare,toggleCompare}=useDemo();const selected=products.filter(p=>compare.includes(p.id));const rows: Array<[string,(p:Product)=>string]>=[["Amount",(p:Product)=>p.variants[0].amount],["Price",(p:Product)=>money(p.variants[0].price)],["Form",(p:Product)=>p.form],["Status",(p:Product)=>p.status],["Document",(p:Product)=>p.documentStatus],["Batch",(p:Product)=>p.batchId]];return <main><PageHero eyebrow="PRODUCT COMPARISON" title="Compare documented facts" text="Up to three fictional materials, aligned by specification rather than unsupported outcomes."/><section className="container compare-page">{selected.length?<div className="compare-table"><div className="compare-row compare-products"><strong>Material</strong>{selected.map(p=><div key={p.id}><ProductVisual product={p}/><h3>{p.name}</h3><button onClick={()=>toggleCompare(p.id)}>Remove</button></div>)}</div>{rows.map(([label,get])=><div className="compare-row" key={label}><strong>{label}</strong>{selected.map(p=><span key={p.id}>{get(p)}</span>)}</div>)}</div>:<EmptyState title="No products selected" text="Choose compare on up to three catalog cards." href="/shop" actionLabel="Browse products"/>}</section></main>}
+
+function CompareSelectionBar({ selectedIds }: { selectedIds: string[] }) {
+  const { toggleCompare } = useDemo();
+  const selected = products.filter((product) => selectedIds.includes(product.id));
+  if (!selected.length) return null;
+  return <aside className="compare-selection" aria-label="Selected products for comparison">
+    <div className="compare-selection-copy"><Badge tone="dark">{selected.length}/3 selected</Badge><span>{selected.map((product) => product.name).join(" · ")}</span></div>
+    <div className="compare-selection-actions"><button type="button" onClick={() => selected.forEach((product) => toggleCompare(product.id))}>Clear selection</button><Button asChild size="sm"><Link href="/compare">Compare products <ArrowRight /></Link></Button></div>
+  </aside>;
+}
 
 function PageHero({eyebrow,title,text}:{eyebrow:string;title:string;text:string}){return <section className="page-hero container"><Badge>{eyebrow}</Badge><h1>{title}</h1><p>{text}</p></section>}
 function Spec({label,value}:{label:string;value:string}){return <div className="spec"><span>{label}</span><strong>{value}</strong></div>}
