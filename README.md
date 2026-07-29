@@ -51,19 +51,20 @@ The migration in `supabase/migrations/0001_commerce_foundation.sql` establishes:
 
 ## Administrator iPhone app
 
-The Expo Router project lives in `admin-mobile`. Configure a separate staging
-EAS project before installing dependencies or building:
+The Expo Router project lives in `admin-mobile` and is linked to its staging EAS
+project. Install and validate dependencies before building:
 
 ```powershell
 Set-Location admin-mobile
 npm install
-eas init
-eas build --profile development --platform ios
+npx expo-doctor
+npm run typecheck
 ```
 
-Replace the placeholder EAS project ID and confirm the staging bundle identifier
-before the first build. A paid Apple Developer account is required for device
-credentials and TestFlight.
+A paid Apple Developer account is required for device credentials and
+TestFlight. Until one is available, use Expo Go for non-push development. The
+current blocker, verified configuration, and exact continuation steps are in
+[`docs/admin-mobile-ios-resume-plan.md`](docs/admin-mobile-ios-resume-plan.md).
 
 ## Vercel staging
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState, createContext, useContext } from "react";
+import { useMemo, useState } from "react";
 import { Accordion, Dialog, Tooltip } from "radix-ui";
 import {
   ArrowLeft, ArrowRight, Check, ChevronDown, CircleUserRound, Clock3, FileCheck2,
@@ -10,96 +10,15 @@ import {
   ShieldCheck, ShoppingBag, SlidersHorizontal, Trash2, X
 } from "lucide-react";
 import { articles, batches, categories, products } from "@/lib/data";
-import type { CartItem, DemoOrder, Product } from "@/lib/types";
+import type { DemoOrder, Product } from "@/lib/types";
 import { Badge, Button, Card, Input, Select, Separator } from "@/components/ui";
-import { ToastProvider, useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast";
+import { useDemo } from "@/components/demo-store";
+import { ProductVisual } from "@/components/product-visual";
+import { calculateCartPricing } from "@/lib/product-finder/cart-pricing";
+import { productBundles } from "@/lib/product-finder/bundles";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-const storageKey = "velle-demo-v1";
-
-type DemoState = {
-  cart: CartItem[];
-  favorites: string[];
-  compare: string[];
-  orders: DemoOrder[];
-  consent?: { version: string; acceptedAt: string };
-};
-type DemoContextValue = DemoState & {
-  addToCart: (productId: string, variantId: string, quantity?: number) => void;
-  updateQuantity: (productId: string, variantId: string, quantity: number) => void;
-  toggleFavorite: (id: string) => void;
-  toggleCompare: (id: string) => void;
-  acceptConsent: () => void;
-  completeOrder: (total: number) => DemoOrder;
-  reset: () => void;
-};
-const initialState: DemoState = { cart: [], favorites: [], compare: [], orders: [] };
-const DemoContext = createContext<DemoContextValue | null>(null);
-
-function DemoProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<DemoState>(initialState);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      // Hydrate device-local demo state after the server render.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved) setState(JSON.parse(saved));
-    } catch {}
-    setReady(true);
-  }, []);
-  useEffect(() => { if (ready) localStorage.setItem(storageKey, JSON.stringify(state)); }, [state, ready]);
-  const value: DemoContextValue = {
-    ...state,
-    addToCart(productId, variantId, quantity = 1) {
-      setState(s => {
-        const found = s.cart.find(i => i.productId === productId && i.variantId === variantId);
-        const cart = found ? s.cart.map(i => i === found ? { ...i, quantity: i.quantity + quantity } : i) : [...s.cart, { productId, variantId, quantity }];
-        return { ...s, cart };
-      });
-    },
-    updateQuantity(productId, variantId, quantity) {
-      setState(s => ({ ...s, cart: quantity <= 0 ? s.cart.filter(i => !(i.productId === productId && i.variantId === variantId)) : s.cart.map(i => i.productId === productId && i.variantId === variantId ? { ...i, quantity } : i) }));
-    },
-    toggleFavorite(id) { setState(s => ({ ...s, favorites: s.favorites.includes(id) ? s.favorites.filter(x => x !== id) : [...s.favorites, id] })); },
-    toggleCompare(id) { setState(s => ({ ...s, compare: s.compare.includes(id) ? s.compare.filter(x => x !== id) : s.compare.length < 3 ? [...s.compare, id] : s.compare })); },
-    acceptConsent() { setState(s => ({ ...s, consent: { version: "2026.07", acceptedAt: new Date().toISOString() } })); },
-    completeOrder(total) {
-      const order = { id: `DEMO-${Math.floor(100000 + Math.random() * 900000)}`, date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), total, status: "Demo order placed", itemCount: state.cart.reduce((n, i) => n + i.quantity, 0) };
-      setState(s => ({ ...s, cart: [], orders: [order, ...s.orders] }));
-      return order;
-    },
-    reset() { localStorage.removeItem(storageKey); setState(initialState); },
-  };
-  return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
-}
-const useDemo = () => {
-  const value = useContext(DemoContext);
-  if (!value) throw new Error("DemoProvider missing");
-  return value;
-};
-
-function ProductVisual({ product, hero = false }: { product: Product; hero?: boolean }) {
-  return (
-    <div className={`product-visual ${hero ? "product-visual-hero" : ""}`} style={{ background: product.tone }}>
-      <span className="visual-code">{product.code} / {product.variants[0].amount}</span>
-      <div className="vial-shadow" />
-      <div className="vial">
-        <div className="vial-cap" />
-        <div className="vial-glass">
-          <div className="vial-label">
-            <span className="vial-brand">VELLE</span>
-            <strong>{product.name}</strong>
-            <span>{product.variants[0].amount}</span>
-            <small>RESEARCH USE ONLY</small>
-          </div>
-        </div>
-      </div>
-      {hero && <div className="carton"><span>VELLE / RESEARCH MATERIAL</span><strong>{product.name}</strong><small>{product.batchId}</small></div>}
-    </div>
-  );
-}
-
 function Header() {
   const { cart } = useDemo();
   const count = cart.reduce((n, i) => n + i.quantity, 0);
@@ -214,7 +133,7 @@ function HomePage() {
   const hero = products[0];
   return <main>
     <section className="hero container">
-      <div className="hero-copy"><Badge>DOCUMENTED RESEARCH MATERIALS</Badge><h1>Precision begins with verification</h1><p>Fictional research products presented with clear batch records, direct specifications, and no unsupported promises.</p><div className="hero-actions"><Button asChild size="lg"><Link href="/shop">Browse products <ArrowRight /></Link></Button><Button asChild variant="outline" size="lg"><Link href="/batch">Verify a demo batch</Link></Button></div><div className="hero-proof"><span><FileCheck2 /> Batch-linked records</span><span><ShieldCheck /> Transparent status</span><span><PackageCheck /> Documented handling</span></div></div>
+      <div className="hero-copy"><Badge>DOCUMENTED RESEARCH MATERIALS</Badge><h1>Precision begins with verification</h1><p>Fictional research products presented with clear batch records, direct specifications, and no unsupported promises.</p><div className="hero-actions"><Button asChild size="lg"><Link href="/get-started">Find your Velle match <ArrowRight /></Link></Button><Button asChild variant="outline" size="lg"><Link href="/shop">Browse products</Link></Button><Button asChild variant="ghost" size="lg"><Link href="/batch">Verify a demo batch</Link></Button></div><div className="hero-proof"><span><FileCheck2 /> Batch-linked records</span><span><ShieldCheck /> Transparent status</span><span><PackageCheck /> Documented handling</span></div></div>
       <ProductVisual product={hero} hero />
     </section>
     <section className="trust-band"><div className="container trust-grid"><div><span>01</span><strong>Identity</strong><p>Keep each record connected to the material it describes.</p></div><div><span>02</span><strong>Documentation</strong><p>Surface methods, dates, status, and limitations in context.</p></div><div><span>03</span><strong>Traceability</strong><p>Follow a fictional batch from release through the demo order.</p></div></div></section>
@@ -310,16 +229,16 @@ function FaqSection(){const qs=[["Is this a real store?","No. Velle Research is 
 
 function AccountPage(){const {orders,favorites}=useDemo();return <main><PageHero eyebrow="DEMO ACCOUNT" title="Good afternoon, researcher" text="A local-only view of saved products, rewards, and fictional orders."/><section className="container account-layout"><aside><strong>Overview</strong><span>Orders</span><span>Saved products</span><span>Rewards</span><span>Profile</span></aside><div><div className="account-stats"><Card><span>DEMO REWARDS</span><strong>420</strong><p>Fictional points balance</p></Card><Card><span>SAVED MATERIALS</span><strong>{favorites.length}</strong><p>Stored on this device</p></Card><Card><span>DEMO ORDERS</span><strong>{orders.length}</strong><p>No real purchases</p></Card></div><section className="account-orders"><div className="section-head compact"><div><span className="eyebrow">RECENT ACTIVITY</span><h2>Demo orders</h2></div></div>{orders.length?orders.map(o=><Card key={o.id} className="order-row"><div><Badge tone="verified">{o.status}</Badge><strong>{o.id}</strong><span>{o.date}</span></div><div><strong>{money(o.total)}</strong><span>{o.itemCount} item{o.itemCount!==1?"s":""}</span></div></Card>):<EmptyState title="No demo orders yet" text="Complete the simulated checkout to see a local order here." href="/shop" actionLabel="Browse products"/>}</section></div></section></main>}
 
-function CartPage(){const {cart,updateQuantity}=useDemo();const detail=cart.map(item=>{const p=products.find(x=>x.id===item.productId)!;const v=p.variants.find(x=>x.id===item.variantId)!;return {...item,p,v}});const subtotal=detail.reduce((n,i)=>n+i.v.price*i.quantity,0);return <main><PageHero eyebrow="DEMO CART" title="Review your materials" text="No real purchase will be made. Prices and fulfillment details are fictional."/><section className="container cart-layout"><div>{detail.length?detail.map(i=><div className="cart-item" key={`${i.productId}-${i.variantId}`}><ProductVisual product={i.p}/><div><Badge>{i.p.documentStatus}</Badge><h3>{i.p.name}</h3><p>{i.v.label} · {i.p.batchId}</p><div className="quantity"><button onClick={()=>updateQuantity(i.productId,i.variantId,i.quantity-1)}><Minus/></button><span>{i.quantity}</span><button onClick={()=>updateQuantity(i.productId,i.variantId,i.quantity+1)}><Plus/></button></div></div><div className="cart-price"><strong>{money(i.v.price*i.quantity)}</strong><button onClick={()=>updateQuantity(i.productId,i.variantId,0)}><Trash2/> Remove</button></div></div>):<EmptyState title="Your demo cart is empty" text="Browse the fictional catalog to add a research material." href="/shop" actionLabel="Browse products"/>}</div>{detail.length>0&&<OrderSummary subtotal={subtotal}/>}</section></main>}
+function CartPage(){const {cart,updateQuantity}=useDemo();const detail=cart.map(item=>{const p=products.find(x=>x.id===item.productId)!;const v=p.variants.find(x=>x.id===item.variantId)!;return {...item,p,v}});const pricing=calculateCartPricing(cart,products,productBundles);return <main><PageHero eyebrow="DEMO CART" title="Review your materials" text="No real purchase will be made. Prices and fulfillment details are fictional."/><section className="container cart-layout"><div>{detail.length?detail.map(i=><div className="cart-item" key={`${i.productId}-${i.variantId}-${i.bundleInstanceId??"regular"}`}><ProductVisual product={i.p}/><div>{i.bundleId?<Badge tone="warm">Bundle item</Badge>:<Badge>{i.p.documentStatus}</Badge>}<h3>{i.p.name}</h3><p>{i.v.label} · {i.p.batchId}</p><div className="quantity"><button aria-label={`Decrease ${i.p.name} quantity`} onClick={()=>updateQuantity(i.productId,i.variantId,i.quantity-1,i.bundleInstanceId)}><Minus/></button><span>{i.quantity}</span><button aria-label={`Increase ${i.p.name} quantity`} onClick={()=>updateQuantity(i.productId,i.variantId,i.quantity+1,i.bundleInstanceId)}><Plus/></button></div></div><div className="cart-price"><strong>{money(i.v.price*i.quantity)}</strong><button onClick={()=>updateQuantity(i.productId,i.variantId,0,i.bundleInstanceId)}><Trash2/> Remove</button></div></div>):<EmptyState title="Your demo cart is empty" text="Browse the fictional catalog to add a research material." href="/shop" actionLabel="Browse products"/>}</div>{detail.length>0?<OrderSummary pricing={pricing}/>:null}</section></main>}
 
-function OrderSummary({subtotal,checkout=false}:{subtotal:number;checkout?:boolean}){const shipping=subtotal>=150?0:18;return <Card className="order-summary"><span className="eyebrow">ORDER SUMMARY</span><div><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div><span>Demo handling</span><strong>{shipping?money(shipping):"Included"}</strong></div><div><span>Estimated tax</span><strong>{money(0)}</strong></div><Separator/><div className="total"><span>Demo total</span><strong>{money(subtotal+shipping)}</strong></div><p>Research-use acknowledgement remains required. No fees or payment will be processed.</p>{!checkout&&<Button asChild size="lg"><Link href="/checkout">Continue to demo checkout</Link></Button>}</Card>}
+function OrderSummary({pricing,checkout=false}:{pricing:ReturnType<typeof calculateCartPricing>;checkout?:boolean}){const shipping=pricing.discountedSubtotal>=150?0:18;return <Card className="order-summary"><span className="eyebrow">ORDER SUMMARY</span><div><span>Subtotal</span><strong>{money(pricing.subtotal)}</strong></div>{pricing.bundleDiscounts.map(line=><div className="bundle-discount-line" key={line.bundleInstanceId}><span>{line.name}</span><strong>−{money(line.amount)}</strong></div>)}<div><span>Demo handling</span><strong>{shipping?money(shipping):"Included"}</strong></div><div><span>Estimated tax</span><strong>{money(0)}</strong></div><Separator/><div className="total"><span>Demo total</span><strong>{money(pricing.discountedSubtotal+shipping)}</strong></div><p>Research-use acknowledgement remains required. No fees or payment will be processed.</p>{!checkout?<Button asChild size="lg"><Link href="/checkout">Continue to demo checkout</Link></Button>:null}</Card>}
 
-function CheckoutPage(){const {cart,completeOrder}=useDemo();const [step,setStep]=useState("details");const [order,setOrder]=useState<DemoOrder|null>(null);const detail=cart.map(item=>{const p=products.find(x=>x.id===item.productId)!;const v=p.variants.find(x=>x.id===item.variantId)!;return {...item,p,v}});const subtotal=detail.reduce((n,i)=>n+i.v.price*i.quantity,0);const total=subtotal+(subtotal>=150?0:18);if(order)return <main className="confirmation"><div className="container"><div className="success-icon"><Check/></div><Badge tone="verified">DEMO ORDER CONFIRMED</Badge><h1>Simulation complete</h1><p>No payment was processed and no fulfillment will occur. A non-sensitive order summary is saved locally for this demonstration.</p><Card><Spec label="ORDER" value={order.id}/><Spec label="DATE" value={order.date}/><Spec label="TOTAL" value={money(order.total)}/><Spec label="STATUS" value={order.status}/></Card><div><Button asChild><Link href="/account">View demo account</Link></Button><Button asChild variant="outline"><Link href="/shop">Return to shop</Link></Button></div></div></main>;if(!cart.length)return <main><PageHero eyebrow="DEMO CHECKOUT" title="Your cart is empty" text="Add a fictional material before starting the checkout simulation."/><div className="container"><EmptyState title="Nothing to check out" text="No order can be simulated yet." href="/shop" actionLabel="Browse products"/></div></main>;
+function CheckoutPage(){const {cart,completeOrder}=useDemo();const [step,setStep]=useState("details");const [order,setOrder]=useState<DemoOrder|null>(null);const pricing=calculateCartPricing(cart,products,productBundles);const subtotal=pricing.discountedSubtotal;const total=subtotal+(subtotal>=150?0:18);if(order)return <main className="confirmation"><div className="container"><div className="success-icon"><Check/></div><Badge tone="verified">DEMO ORDER CONFIRMED</Badge><h1>Simulation complete</h1><p>No payment was processed and no fulfillment will occur. A non-sensitive order summary is saved locally for this demonstration.</p><Card><Spec label="ORDER" value={order.id}/><Spec label="DATE" value={order.date}/><Spec label="TOTAL" value={money(order.total)}/><Spec label="STATUS" value={order.status}/></Card><div><Button asChild><Link href="/account">View demo account</Link></Button><Button asChild variant="outline"><Link href="/shop">Return to shop</Link></Button></div></div></main>;if(!cart.length)return <main><PageHero eyebrow="DEMO CHECKOUT" title="Your cart is empty" text="Add a fictional material before starting the checkout simulation."/><div className="container"><EmptyState title="Nothing to check out" text="No order can be simulated yet." href="/shop" actionLabel="Browse products"/></div></main>;
   return <main><PageHero eyebrow="SIMULATION ONLY" title="Demo checkout" text="Use fictional information only. Values entered below are kept in memory for this screen and discarded."/><section className="container checkout-layout"><div><div className="checkout-steps"><span className={step==="details"?"active":""}>01 Details</span><span className={step==="shipping"?"active":""}>02 Shipping</span><span className={step==="payment"?"active":""}>03 Demo payment</span></div><div className="demo-alert"><ShieldCheck/><div><strong>Do not enter real personal or payment information</strong><p>This form never transmits or stores field values. Use the fictional values shown in the placeholders.</p></div></div>
     {step==="details"&&<form className="form-grid" onSubmit={e=>{e.preventDefault();setStep("shipping")}}><h2>Contact & address</h2><label>Email<Input required type="email" placeholder="researcher@example.test"/></label><label>Full name<Input required placeholder="Demo Researcher"/></label><label className="wide">Address<Input required placeholder="100 Fictional Lab Way"/></label><label>City<Input required placeholder="Testville"/></label><label>State<Select required defaultValue=""><option value="" disabled>Select</option><option>Indiana</option><option>Ohio</option></Select></label><label>Postal code<Input required placeholder="00000" pattern="[0-9]{5}"/></label><div className="form-actions wide"><Button type="submit">Continue to shipping</Button></div></form>}
     {step==="shipping"&&<form onSubmit={e=>{e.preventDefault();setStep("payment")}}><h2>Demo shipping method</h2><label className="radio-card"><input type="radio" name="shipping" defaultChecked/><div><strong>Documented handling</strong><span>Fictional delivery in 2–4 business days</span></div><strong>{subtotal>=150?"Included":"$18.00"}</strong></label><label className="check-row"><input type="checkbox" required/><span>I acknowledge that all depicted products and fulfillment details are fictional and research-use-only.</span></label><div className="form-actions"><Button variant="outline" type="button" onClick={()=>setStep("details")}>Back</Button><Button type="submit">Continue to demo payment</Button></div></form>}
     {step==="payment"&&<form className="form-grid" onSubmit={e=>{e.preventDefault();setOrder(completeOrder(total))}}><h2>Demo payment</h2><div className="fake-card wide"><span>SIMULATION CARD</span><strong>4242 4242 4242 4242</strong><small>NO PAYMENT CAPABILITY</small></div><label className="wide">Card-shaped demo field<Input required defaultValue="4242 4242 4242 4242" readOnly aria-describedby="payment-note"/></label><label>Expiry<Input required defaultValue="12/34" readOnly/></label><label>Security code<Input required defaultValue="000" readOnly/></label><p id="payment-note" className="micro wide">These fixed demonstration values cannot be changed and are not payment credentials.</p><div className="form-actions wide"><Button variant="outline" type="button" onClick={()=>setStep("shipping")}>Back</Button><Button type="submit">Place demo order</Button></div></form>}
-  </div><OrderSummary subtotal={subtotal} checkout/></section></main>}
+  </div><OrderSummary pricing={pricing} checkout/></section></main>}
 
 function ComparePage(){const {compare,toggleCompare}=useDemo();const selected=products.filter(p=>compare.includes(p.id));const rows: Array<[string,(p:Product)=>string]>=[["Amount",(p:Product)=>p.variants[0].amount],["Price",(p:Product)=>money(p.variants[0].price)],["Form",(p:Product)=>p.form],["Status",(p:Product)=>p.status],["Document",(p:Product)=>p.documentStatus],["Batch",(p:Product)=>p.batchId]];return <main><PageHero eyebrow="PRODUCT COMPARISON" title="Compare documented facts" text="Up to three fictional materials, aligned by specification rather than unsupported outcomes."/><section className="container compare-page">{selected.length?<div className="compare-table"><div className="compare-row compare-products"><strong>Material</strong>{selected.map(p=><div key={p.id}><ProductVisual product={p}/><h3>{p.name}</h3><button onClick={()=>toggleCompare(p.id)}>Remove</button></div>)}</div>{rows.map(([label,get])=><div className="compare-row" key={label}><strong>{label}</strong>{selected.map(p=><span key={p.id}>{get(p)}</span>)}</div>)}</div>:<EmptyState title="No products selected" text="Choose compare on up to three catalog cards." href="/shop" actionLabel="Browse products"/>}</section></main>}
 
@@ -334,5 +253,5 @@ function Router({path}:{path:string}) {
 }
 
 export function Storefront({path}:{path:string}) {
-  return <ToastProvider><DemoProvider><Tooltip.Provider delayDuration={250}><Header/><Router path={path}/><Footer/><VerificationGate/></Tooltip.Provider></DemoProvider></ToastProvider>;
+  return <Tooltip.Provider delayDuration={250}><Header/><Router path={path}/><Footer/><VerificationGate/></Tooltip.Provider>;
 }

@@ -50,6 +50,9 @@ export interface CartItem {
   productId: string;
   variantId: string;
   quantity: number;
+  bundleId?: string;
+  bundleInstanceId?: string;
+  bundleRequiredQuantity?: number;
 }
 
 export interface DemoOrder {

@@ -1,0 +1,8 @@
+import type { ProductBundle } from "./types";
+
+export const productBundles: ProductBundle[] = [
+  { id: "b-weight-collagen", slug: "weight-collagen-support", name: "Weight + Collagen Support Bundle", description: "A two-product fictional routine supporting weight and collagen goals.", productIds: ["p1", "p2"], primaryGoals: ["weight-management"], supportedSecondaryGoals: ["collagen-skin"], discountType: "percentage", discountValue: 10, active: true, recommendationRank: 10 },
+  { id: "b-weight-recovery", slug: "weight-recovery-support", name: "Weight + Recovery Support Bundle", description: "A two-product fictional routine supporting weight and recovery goals.", productIds: ["p1", "p3"], primaryGoals: ["weight-management"], supportedSecondaryGoals: ["tendon-ligament-recovery"], discountType: "percentage", discountValue: 10, active: true, recommendationRank: 20 },
+  { id: "b-collagen-recovery", slug: "collagen-recovery-support", name: "Collagen + Recovery Support Bundle", description: "A two-product fictional routine supporting collagen and recovery goals.", productIds: ["p2", "p3"], primaryGoals: ["collagen-skin"], supportedSecondaryGoals: ["tendon-ligament-recovery"], discountType: "percentage", discountValue: 12, active: true, recommendationRank: 30 },
+  { id: "b-comprehensive", slug: "comprehensive-wellness", name: "Comprehensive Wellness Bundle", description: "A three-product fictional routine spanning several selected goals.", productIds: ["p4", "p9", "p7"], primaryGoals: ["general-wellness"], supportedSecondaryGoals: ["collagen-skin", "tendon-ligament-recovery", "weight-management"], discountType: "percentage", discountValue: 15, active: true, recommendationRank: 40 },
+];

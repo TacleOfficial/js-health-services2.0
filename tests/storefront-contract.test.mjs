@@ -6,6 +6,7 @@ const root = new URL("../", import.meta.url);
 
 test("defines the complete Velle storefront experience", async () => {
   const storefront = await readFile(new URL("components/storefront.tsx", root), "utf8");
+  const demoStore = await readFile(new URL("components/demo-store.tsx", root), "utf8");
   for (const text of [
     "Precision begins with verification",
     "From intake to documented release",
@@ -21,7 +22,7 @@ test("defines the complete Velle storefront experience", async () => {
   ]) {
     assert.match(storefront, new RegExp(text));
   }
-  assert.match(storefront, /localStorage/);
+  assert.match(demoStore, /localStorage/);
   assert.match(storefront, /NOT A REAL COA/);
 });
 

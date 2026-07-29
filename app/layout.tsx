@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { Cormorant_Garamond } from "next/font/google";
+import { AppProviders } from "@/components/app-providers";
 import "./globals.css";
 import "./toast.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
+const editorial = Cormorant_Garamond({ variable: "--font-editorial", subsets: ["latin"], weight: ["500", "600"] });
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -22,5 +25,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={`${inter.variable} ${plexMono.variable}`}><body>{children}</body></html>;
+  return <html lang="en" className={`${inter.variable} ${plexMono.variable} ${editorial.variable}`}><body><AppProviders>{children}</AppProviders></body></html>;
 }
