@@ -21,8 +21,10 @@
       "bundleIdentifier": "com.velleresearch.admin.staging",
       "infoPlist": {
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "extra": {
