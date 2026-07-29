@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, CreditCard, Database, Package, Search, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, CreditCard, Database, Package, Plus, Search, ShieldAlert } from "lucide-react";
 import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { formatUsd } from "@/lib/commerce/money";
@@ -8,26 +8,29 @@ import { stripeReady } from "@/lib/stripe";
 import { setPaymentMethodEnabled, createTestPaymentSubmission } from "./actions";
 import { requireAdmin } from "@/lib/account";
 import { AdminMfaPanel } from "@/components/admin-mfa-panel";
+import { AdminInventoryActions } from "@/components/admin-inventory-actions";
 
 export const metadata: Metadata = { title: "Admin operations · Private staging", robots: { index: false, follow: false } };
 type View = "queue" | "orders" | "inventory" | "settings" | "security";
 
 const badgeTone = (status: string) => status === "verified" || status === "completed" || status === "delivered" ? "verified" as const : status === "rejected" || status === "cancelled" ? "neutral" as const : "warm" as const;
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ view?: string; filter?: string; q?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ view?: string; filter?: string; q?: string; status?: string }> }) {
   const { supabase } = await requireAdmin();
   const params = await searchParams;
   const view: View = ["orders","inventory","settings","security"].includes(params.view ?? "") ? params.view as View : "queue";
   const filter = params.filter ?? "actionable";
   const queryText = params.q?.trim() ?? "";
+  const inventoryStatus = ["active","draft","archived","all"].includes(params.status ?? "") ? params.status! : "active";
   const [
-    submissionsResult, ordersResult, inventoryResult, paymentConfigsResult, aalResult,
+    submissionsResult, ordersResult, inventoryResult, paymentConfigsResult, aalResult, inventoryManagerResult,
   ] = await Promise.all([
     supabase.from("payment_submissions").select("*,orders!inner(id,order_number,total_cents,customer_email,order_status,payment_status,fulfillment_status,created_at)").order("submitted_at", { ascending: false }).limit(100),
     supabase.from("orders").select("id,order_number,customer_email,total_cents,order_status,payment_status,fulfillment_status,created_at").order("created_at", { ascending: false }).limit(100),
-    supabase.from("inventory_items").select("on_hand,committed,updated_at,product_variants!inner(id,sku,title,products!inner(title))").order("updated_at", { ascending: false }),
+    supabase.from("inventory_items").select("on_hand,committed,updated_at,product_variants!inner(id,sku,title,status,products!inner(id,title,status))").order("updated_at", { ascending: false }),
     supabase.from("payment_method_configs").select("method,display_name,is_active").order("display_name"),
     supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    supabase.rpc("has_admin_role", { allowed: ["manager", "super_admin"] }),
   ]);
   const error = [submissionsResult, ordersResult, inventoryResult, paymentConfigsResult].find(result => result.error)?.error;
   if (error) throw new Error(`Admin data is unavailable: ${error.message}`);
@@ -43,6 +46,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     return row.amount_reported_cents !== order?.total_cents || row.status === "possible_duplicate";
   }).length;
   const aal2 = aalResult.data?.currentLevel === "aal2";
+  const canManageInventory = aal2 && Boolean(inventoryManagerResult.data);
+  const inventoryRows = (inventoryResult.data ?? []).filter(row => {
+    const variant = Array.isArray(row.product_variants) ? row.product_variants[0] : row.product_variants;
+    const product = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
+    return inventoryStatus === "all" || product?.status === inventoryStatus;
+  });
 
   return <CommerceShell admin><main className="admin-page container">
     <div className="admin-heading">
@@ -86,11 +95,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
     {view === "orders" && <Card className="admin-data-card"><div className="admin-data-head"><Package/><div><h2>Orders</h2><p>Payment and fulfillment state from the live orders table.</p></div></div><div className="admin-simple-table">{(ordersResult.data ?? []).map(order => <Link href={`/orders/${order.order_number}`} key={order.id}><div><strong>{order.order_number}</strong><small>{order.customer_email} · {new Date(order.created_at).toLocaleDateString()}</small></div><span>{formatUsd(order.total_cents)}</span><Badge tone={badgeTone(order.payment_status)}>{order.payment_status.replaceAll("_"," ")}</Badge><Badge tone={badgeTone(order.fulfillment_status)}>{order.fulfillment_status.replaceAll("_"," ")}</Badge><ArrowUpRight/></Link>)}</div>{!ordersResult.data?.length && <div className="admin-empty"><Package/><h3>No orders</h3><p>Orders will appear after checkout creates them.</p></div>}</Card>}
 
-    {view === "inventory" && <Card className="admin-data-card"><div className="admin-data-head"><Database/><div><h2>Inventory</h2><p>On-hand, committed, and currently available units.</p></div></div><div className="inventory-table"><div><strong>Product / SKU</strong><strong>On hand</strong><strong>Committed</strong><strong>Available</strong></div>{(inventoryResult.data ?? []).map(row => {
+    {view === "inventory" && <Card className="admin-data-card"><div className="admin-data-head admin-inventory-head"><Database/><div><h2>Inventory</h2><p>On-hand, committed, and currently available units.</p></div>{canManageInventory ? <Button asChild><Link href="/admin/products/new"><Plus/> Add product</Link></Button> : <Button disabled title="Manager AAL2 required"><Plus/> Add product</Button>}</div><div className="inventory-filters" aria-label="Inventory status filters">{["active","draft","archived","all"].map(status => <Link className={inventoryStatus === status ? "active" : ""} href={`/admin?view=inventory&status=${status}`} key={status}>{status[0].toUpperCase()+status.slice(1)}</Link>)}</div><div className="inventory-table"><div><strong>Product / SKU</strong><strong>On hand</strong><strong>Committed</strong><strong>Available</strong><strong>Actions</strong></div>{inventoryRows.map(row => {
       const variant = Array.isArray(row.product_variants) ? row.product_variants[0] : row.product_variants;
       const product = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
-      return <div key={variant?.id}><span><strong>{product?.title} · {variant?.title}</strong><small>{variant?.sku}</small></span><span>{row.on_hand}</span><span>{row.committed}</span><strong>{row.on_hand-row.committed}</strong></div>;
-    })}</div>{!inventoryResult.data?.length && <div className="admin-empty"><Database/><h3>No inventory records</h3><p>The test submission generator can create a safe staging inventory fixture.</p></div>}</Card>}
+      return <div key={variant?.id}><span><strong>{product?.title} · {variant?.title}</strong><small>{variant?.sku}</small></span><span>{row.on_hand}</span><span>{row.committed}</span><strong>{row.on_hand-row.committed}</strong><AdminInventoryActions productId={product!.id} productTitle={product!.title} archived={product!.status === "archived"} disabled={!canManageInventory}/></div>;
+    })}</div>{!inventoryRows.length && <div className="admin-empty"><Database/><h3>No {inventoryStatus === "all" ? "" : `${inventoryStatus} `}inventory records</h3><p>Add a product or choose another status filter.</p></div>}</Card>}
 
     {view === "settings" && <Card className="payment-settings"><div><span className="eyebrow">CHECKOUT AVAILABILITY</span><h2>Payment methods</h2><p>AAL2 is required to change customer checkout availability.</p></div><div>{(paymentConfigsResult.data ?? []).map(config => <form action={setPaymentMethodEnabled} key={config.method}><input type="hidden" name="method" value={config.method}/><input type="hidden" name="enabled" value={String(!config.is_active)}/><span className="method-icon">{config.method === "stripe_card" ? <CreditCard/> : config.method === "zelle" ? "Z" : "$"}</span><div><strong>{config.display_name}</strong><small>{config.method === "stripe_card" && !stripeReady() ? "Configuration incomplete" : config.is_active ? "Available to customers" : "Hidden"}</small></div><Button variant={config.is_active ? "outline" : "primary"} disabled={!aal2 || config.method === "stripe_card" && !stripeReady() && !config.is_active}>{config.is_active ? "Disable" : "Enable"}</Button></form>)}</div></Card>}
 

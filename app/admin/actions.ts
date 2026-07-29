@@ -5,6 +5,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { stripeReady } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/account";
+import { adminProductSchema, type AdminProductActionState } from "@/lib/admin-products";
+import { redirect } from "next/navigation";
 
 const value = (data: FormData, key: string) => String(data.get(key) ?? "");
 
@@ -87,4 +89,43 @@ export async function createTestPaymentSubmission() {
   const fixtureError = inserts.find(result => result.error)?.error;
   if (fixtureError) throw new Error(fixtureError.message);
   revalidatePath("/admin");
+}
+
+export async function saveAdminProduct(_state: AdminProductActionState, data: FormData): Promise<AdminProductActionState> {
+  await requireAdmin();
+  let raw: unknown;
+  try { raw = JSON.parse(value(data, "payload")); }
+  catch { return { ok: false, message: "The product form could not be read." }; }
+  const parsed = adminProductSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, message: "Review the highlighted product details.", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+  const product = parsed.data;
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { ok: false, message: "Supabase is not configured." };
+  const variants = product.variants.map(variant => ({
+    id: variant.id ?? null, sku: variant.sku, title: variant.title,
+    price_cents: Math.round(variant.price * 100), weight_grams: variant.weightGrams,
+    status: variant.status, on_hand: variant.onHand,
+  }));
+  const { data: productId, error } = await supabase.rpc("admin_save_product", {
+    p_product_id: product.id ?? null,
+    p_product: { slug: product.slug, title: product.title, description: product.description, category: product.category, status: product.status },
+    p_variants: variants,
+  });
+  if (error) return { ok: false, message: error.message.includes("duplicate") ? "That slug or SKU is already in use." : error.message };
+  revalidatePath("/admin");
+  revalidatePath(`/admin/products/${productId}`);
+  redirect(`/admin/products/${productId}?saved=1`);
+}
+
+export async function setAdminProductArchived(data: FormData) {
+  await requireAdmin();
+  const productId = z.string().uuid().parse(value(data, "product_id"));
+  const archived = value(data, "archived") === "true";
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.rpc("admin_set_product_archived", { p_product_id: productId, p_archived: archived });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin");
+  revalidatePath(`/admin/products/${productId}`);
+  if (archived) redirect("/admin?view=inventory");
 }
