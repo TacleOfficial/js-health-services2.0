@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Velle Admin",
+    "slug": "velle-admin",
+    "version": "0.1.0",
+    "scheme": "velle-admin",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-notifications", { "enableBackgroundRemoteNotifications": true }]
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.velleresearch.admin.staging",
+      "infoPlist": { "UIBackgroundModes": ["remote-notification"] }
+    },
+    "extra": {
+      "router": { "origin": false },
+      "eas": { "projectId": "CONFIGURE_WITH_EAS_INIT" }
+    }
+  }
+}
