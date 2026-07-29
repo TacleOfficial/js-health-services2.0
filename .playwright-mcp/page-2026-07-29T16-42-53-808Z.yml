@@ -1,0 +1,30 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - link "VELLE RESEARCH SYSTEMS" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - text: VELLE
+        - generic [ref=e5]: RESEARCH SYSTEMS
+      - text: SECURE CUSTOMER ACCESS
+      - heading "Sign in to your account" [level=1] [ref=e6]
+      - paragraph [ref=e7]: Your account data is protected by Supabase authentication and row-level security.
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - text: Email
+          - textbox "Email" [ref=e10]
+        - generic [ref=e11]:
+          - text: Password
+          - textbox "Password" [ref=e12]
+        - button "Sign in" [ref=e13] [cursor=pointer]
+      - generic [ref=e14]: or
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - text: Email
+          - textbox "Email" [ref=e18]
+        - button "Email me a magic link" [ref=e19] [cursor=pointer]
+      - generic [ref=e20]:
+        - link "Forgot password?" [ref=e21] [cursor=pointer]:
+          - /url: /auth/forgot-password
+        - link "Create account" [ref=e22] [cursor=pointer]:
+          - /url: /auth/sign-up
+  - alert [ref=e23]

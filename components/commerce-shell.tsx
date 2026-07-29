@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { FlaskConical, LockKeyhole, ShoppingBag } from "lucide-react";
+import { AccountHeaderMenu } from "@/components/account-header-menu";
 
-export function CommerceShell({ children, admin = false }: { children: React.ReactNode; admin?: boolean }) {
+type AccountMenuIdentity = { name: string; email: string };
+
+export function CommerceShell({ children, admin = false, accountMenu }: { children: React.ReactNode; admin?: boolean; accountMenu?: AccountMenuIdentity }) {
   return (
     <>
       <div className="notice">{admin ? "PRIVATE ADMIN STAGING" : "PRIVATE COMMERCE STAGING · NO LIVE PAYMENTS"}</div>
@@ -24,7 +27,7 @@ export function CommerceShell({ children, admin = false }: { children: React.Rea
             )}
           </nav>
           <div className="header-actions">
-            {admin ? <LockKeyhole aria-hidden="true" /> : <FlaskConical aria-hidden="true" />}
+            {admin ? <LockKeyhole aria-hidden="true" /> : accountMenu ? <AccountHeaderMenu {...accountMenu} /> : <FlaskConical aria-hidden="true" />}
             <Link className="icon-link" href={admin ? "/" : "/cart"} aria-label={admin ? "Return to storefront" : "Open cart"}>
               <ShoppingBag />
             </Link>

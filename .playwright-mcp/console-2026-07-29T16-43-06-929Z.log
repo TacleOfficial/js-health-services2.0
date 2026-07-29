@@ -1,0 +1,3 @@
+[  204953ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/admin?view=inventory&_rsc=xFVjKFL12UrVWmwy:0
+[  204953ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/admin?view=orders&_rsc=xFVjKFL12UrVWmwy:0
+[  204953ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3100/admin?_rsc=we3ubxF55xroP6U0:0

@@ -1,0 +1,85 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]: PRIVATE ADMIN STAGING
+  - banner [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - link "VELLE RESEARCH SYSTEMS" [ref=f2e5] [cursor=pointer]:
+        - /url: /
+        - text: VELLE
+        - generic [ref=f2e6]: RESEARCH SYSTEMS
+      - link "Return to storefront" [ref=f2e12] [cursor=pointer]:
+        - /url: /
+  - main [ref=f2e16]:
+    - generic [ref=f2e17]:
+      - generic [ref=f2e18]:
+        - text: PAYMENT OPERATIONS
+        - heading "Verification queue" [level=1] [ref=f2e19]
+        - paragraph [ref=f2e20]: Funds must be independently confirmed before inventory and fulfillment unlock.
+      - button "Require AAL2" [ref=f2e21] [cursor=pointer]
+    - region "Queue summary" [ref=f2e24]:
+      - generic [ref=f2e25]:
+        - generic [ref=f2e29]: Awaiting review
+        - strong [ref=f2e30]: "3"
+        - generic [ref=f2e31]: Actionable submissions
+      - generic [ref=f2e32]:
+        - generic [ref=f2e35]: Exceptions
+        - strong [ref=f2e36]: "2"
+        - generic [ref=f2e37]: Manager authorization
+      - generic [ref=f2e38]:
+        - generic [ref=f2e42]: Verified today
+        - strong [ref=f2e43]: "0"
+        - generic [ref=f2e44]: Staging records only
+    - generic [ref=f2e46]:
+      - text: CHECKOUT AVAILABILITY
+      - heading "Payment methods" [level=2] [ref=f2e47]
+      - paragraph [ref=f2e48]: Each method is independently controlled. Enabling changes customer checkout and account visibility.
+    - generic [ref=f2e50]:
+      - generic [ref=f2e51]:
+        - textbox "Search payment queue" [ref=f2e56]:
+          - /placeholder: Search order, sender, or reference
+        - generic [ref=f2e57]:
+          - button "Actionable" [ref=f2e58]
+          - button "Mismatch" [ref=f2e59]
+          - button "Duplicate" [ref=f2e60]
+          - button "Expired" [ref=f2e61]
+      - table "Payment submissions" [ref=f2e62]:
+        - row "Order Method Expected / reported Risk Status" [ref=f2e63]:
+          - generic [ref=f2e64]: Order
+          - generic [ref=f2e65]: Method
+          - generic [ref=f2e66]: Expected / reported
+          - generic [ref=f2e67]: Risk
+          - generic [ref=f2e68]: Status
+        - row "VEL-2026-X7K4P9 A. Morgan · 4 min ago Zelle $144.00 Exact Exact match New submission Open VEL-2026-X7K4P9" [ref=f2e69]:
+          - generic [ref=f2e70]:
+            - strong [ref=f2e71]: VEL-2026-X7K4P9
+            - generic [ref=f2e72]: A. Morgan · 4 min ago
+          - generic [ref=f2e73]: Zelle
+          - generic [ref=f2e74]:
+            - strong [ref=f2e75]: $144.00
+            - generic [ref=f2e76]: Exact
+          - generic [ref=f2e77]: Exact match
+          - generic [ref=f2e79]: New submission
+          - button "Open VEL-2026-X7K4P9" [ref=f2e80] [cursor=pointer]
+        - row "VEL-2026-Q2M8RT J. Chen · 18 min ago Cash App $218.00 Reported $210.00 Amount mismatch Needs review Open VEL-2026-Q2M8RT" [ref=f2e84]:
+          - generic [ref=f2e85]:
+            - strong [ref=f2e86]: VEL-2026-Q2M8RT
+            - generic [ref=f2e87]: J. Chen · 18 min ago
+          - generic [ref=f2e88]: Cash App
+          - generic [ref=f2e89]:
+            - strong [ref=f2e90]: $218.00
+            - generic [ref=f2e91]: Reported $210.00
+          - generic [ref=f2e92]: Amount mismatch
+          - generic [ref=f2e94]: Needs review
+          - button "Open VEL-2026-Q2M8RT" [ref=f2e95] [cursor=pointer]
+        - row "VEL-2026-N9DP4W R. Ellis · 31 min ago Zelle $534.00 Exact High value Manager review Open VEL-2026-N9DP4W" [ref=f2e99]:
+          - generic [ref=f2e100]:
+            - strong [ref=f2e101]: VEL-2026-N9DP4W
+            - generic [ref=f2e102]: R. Ellis · 31 min ago
+          - generic [ref=f2e103]: Zelle
+          - generic [ref=f2e104]:
+            - strong [ref=f2e105]: $534.00
+            - generic [ref=f2e106]: Exact
+          - generic [ref=f2e107]: High value
+          - generic [ref=f2e109]: Manager review
+          - button "Open VEL-2026-N9DP4W" [ref=f2e110] [cursor=pointer]
+      - paragraph [ref=f2e114]: Illustrative staging data. Approval actions remain disabled until Supabase Auth, AAL2, and database roles are connected.
+  - alert [ref=f2e115]

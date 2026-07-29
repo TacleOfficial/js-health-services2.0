@@ -1,0 +1,170 @@
+/* Route-owned admin layout rules. Keeping these with the route prevents a
+   long-lived storefront stylesheet from presenting new admin markup unstyled. */
+.admin-page {
+  min-width: 0;
+}
+
+.admin-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -10px 0 30px;
+  border-bottom: 1px solid var(--q-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.admin-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-tabs a {
+  flex: none;
+  padding: 13px 16px;
+  border-bottom: 2px solid transparent;
+  color: var(--q-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.admin-tabs a.active {
+  border-color: var(--q-action);
+  color: var(--q-ink);
+  font-weight: 600;
+}
+
+.admin-test-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  background: var(--q-warm);
+}
+
+.admin-test-card > div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.admin-test-card svg {
+  width: 21px;
+}
+
+.admin-test-card span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-test-card small {
+  color: var(--q-muted);
+  line-height: 1.45;
+}
+
+.queue-tools {
+  min-width: 0;
+}
+
+.queue-tools .search-box {
+  position: relative;
+  display: flex;
+  min-width: 260px;
+}
+
+.queue-tools .search-box > svg {
+  position: absolute;
+  z-index: 1;
+  top: 15px;
+  left: 15px;
+  width: 18px;
+}
+
+.queue-tools .search-box .input {
+  padding-left: 44px;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter-chips a {
+  flex: none;
+  padding: 9px 13px;
+  border: 1px solid var(--q-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 11px;
+}
+
+.filter-chips a.active {
+  border-color: var(--q-action);
+  background: var(--q-action);
+  color: #fff;
+}
+
+.admin-empty {
+  display: grid;
+  justify-items: center;
+  padding: 56px 24px;
+  color: var(--q-muted);
+  text-align: center;
+}
+
+.admin-empty svg {
+  width: 26px;
+}
+
+.admin-empty h3 {
+  margin: 14px 0 5px;
+  color: var(--q-ink);
+  font-size: 23px;
+  font-weight: 400;
+}
+
+.admin-empty p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .admin-heading {
+    align-items: flex-start;
+  }
+
+  .admin-test-card {
+    align-items: flex-start;
+  }
+
+  .queue-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .queue-tools .search-box {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-heading {
+    gap: 20px;
+  }
+
+  .admin-test-card {
+    flex-direction: column;
+  }
+
+  .admin-test-card form,
+  .admin-test-card .button {
+    width: 100%;
+  }
+}

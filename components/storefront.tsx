@@ -12,6 +12,7 @@ import {
 import { articles, batches, categories, products } from "@/lib/data";
 import type { CartItem, DemoOrder, Product } from "@/lib/types";
 import { Badge, Button, Card, Input, Select, Separator } from "@/components/ui";
+import { ToastProvider, useToast } from "@/components/ui/toast";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const storageKey = "velle-demo-v1";
@@ -156,7 +157,12 @@ function VerificationGate() {
 
 function ProductCard({ product }: { product: Product }) {
   const { addToCart, favorites, toggleFavorite, compare, toggleCompare } = useDemo();
+  const { toast } = useToast();
   const disabled = product.status === "Temporarily unavailable";
+  function quickAdd() {
+    addToCart(product.id, product.variants[0].id);
+    toast({ title: "Added to cart", description: `${product.name} · ${product.variants[0].label}` });
+  }
   return <article className="product-card">
     <Link href={`/products/${product.slug}`}><ProductVisual product={product} /></Link>
     <button className={`favorite ${favorites.includes(product.id) ? "active" : ""}`} onClick={() => toggleFavorite(product.id)} aria-label={`Favorite ${product.name}`}><Heart /></button>
@@ -164,7 +170,7 @@ function ProductCard({ product }: { product: Product }) {
       <div className="badge-line"><Badge tone={product.documentStatus === "Batch verified" ? "verified" : product.documentStatus === "Testing pending" ? "warm" : "neutral"}>{product.documentStatus}</Badge><span className={product.status === "Low stock" ? "stock-low" : ""}>{product.status}</span></div>
       <Link href={`/products/${product.slug}`}><h3>{product.name}</h3></Link><p>{product.descriptor}</p>
       <div className="product-meta"><span>{product.variants[0].amount}</span><strong>From {money(product.variants[0].price)}</strong></div>
-      <div className="product-actions"><Button disabled={disabled} onClick={() => addToCart(product.id, product.variants[0].id)}>{disabled ? "Unavailable" : "Quick add"}</Button><Tooltip.Provider><Tooltip.Root><Tooltip.Trigger asChild><button className={`compare-button ${compare.includes(product.id) ? "active" : ""}`} onClick={() => toggleCompare(product.id)} aria-label={`Compare ${product.name}`}><SlidersHorizontal /></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="tooltip">Compare product<Tooltip.Arrow /></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider></div>
+      <div className="product-actions"><Button disabled={disabled} onClick={quickAdd}>{disabled ? "Unavailable" : "Quick add"}</Button><Tooltip.Provider><Tooltip.Root><Tooltip.Trigger asChild><button className={`compare-button ${compare.includes(product.id) ? "active" : ""}`} onClick={() => toggleCompare(product.id)} aria-label={`Compare ${product.name}`}><SlidersHorizontal /></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="tooltip">Compare product<Tooltip.Arrow /></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider></div>
     </div>
   </article>;
 }
@@ -328,5 +334,5 @@ function Router({path}:{path:string}) {
 }
 
 export function Storefront({path}:{path:string}) {
-  return <DemoProvider><Tooltip.Provider delayDuration={250}><Header/><Router path={path}/><Footer/><VerificationGate/></Tooltip.Provider></DemoProvider>;
+  return <ToastProvider><DemoProvider><Tooltip.Provider delayDuration={250}><Header/><Router path={path}/><Footer/><VerificationGate/></Tooltip.Provider></DemoProvider></ToastProvider>;
 }
