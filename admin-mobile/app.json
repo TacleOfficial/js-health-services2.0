@@ -9,16 +9,30 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-notifications", { "enableBackgroundRemoteNotifications": true }]
+      [
+        "expo-notifications",
+        {
+          "enableBackgroundRemoteNotifications": true
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.velleresearch.admin.staging",
-      "infoPlist": { "UIBackgroundModes": ["remote-notification"] }
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "extra": {
-      "router": { "origin": false },
-      "eas": { "projectId": "CONFIGURE_WITH_EAS_INIT" }
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "e83debed-54a7-4b19-9a5f-7dd1637305cc"
+      }
+    },
+    "owner": "tacleofficial-1"
   }
 }
