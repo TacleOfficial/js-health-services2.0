@@ -5,10 +5,11 @@ import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { formatUsd } from "@/lib/commerce/money";
 import { stripeReady } from "@/lib/stripe";
-import { setPaymentMethodEnabled, createTestPaymentSubmission, changeCommerceMode, updatePaymentDestination, addManualTaxRate, purchaseOrderLabel } from "./actions";
+import { setPaymentMethodEnabled, createTestPaymentSubmission, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel } from "./actions";
 import { requireAdmin } from "@/lib/account";
 import { AdminInventoryActions } from "@/components/admin-inventory-actions";
 import { getCommerceRuntime, getProductionReadiness } from "@/lib/commerce/runtime";
+import { AdminTaxRateForm } from "@/components/admin-tax-rate-form";
 
 export const metadata: Metadata = { title: "Admin operations · Private staging", robots: { index: false, follow: false } };
 type View = "queue" | "orders" | "inventory" | "settings";
@@ -121,7 +122,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {isSuperAdmin && config.method !== "stripe_card" && <form action={updatePaymentDestination} className="destination-form"><input type="hidden" name="method" value={config.method}/><Input name="destination_name" placeholder="Account holder" required/><Input name="destination_value" type="password" placeholder="New destination" required/><Button variant="outline">Update destination</Button></form>}
       </div>)}</div></Card>
       <Card className="tax-rates-panel"><div><span className="eyebrow">AUDITED FALLBACK</span><h2>Manual tax rates</h2><p>Used only for technical Stripe Tax failures, never configuration or legal errors.</p></div>
-        {isSuperAdmin && <form action={addManualTaxRate} className="tax-rate-form"><Input name="region" placeholder="State (IN)" maxLength={2} required/><Input name="postal_pattern" placeholder="Postal prefix (optional)"/><Input name="rate_percent" type="number" min="0" max="100" step="0.001" placeholder="Rate %" required/><Input name="effective_from" type="datetime-local" required/><Input name="effective_to" type="datetime-local"/><Input name="legal_acknowledgment" placeholder="Legal review acknowledgment" required/><Button>Add approved version</Button></form>}
+        {isSuperAdmin && <AdminTaxRateForm/>}
         <div className="tax-rate-list">{(taxRatesResult.data ?? []).map(rate => <div key={rate.id}><strong>{rate.region_code}{rate.postal_pattern ? ` / ${rate.postal_pattern}` : ""}</strong><span>{(rate.rate_basis_points / 100).toFixed(3)}%</span><Badge tone={rate.is_approved ? "verified" : "neutral"}>v{rate.version}</Badge></div>)}</div>
       </Card>
     </div>}
