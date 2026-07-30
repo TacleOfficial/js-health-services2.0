@@ -43,3 +43,12 @@ test("shipping modes isolate Shippo and manual fulfillment", async () => {
   assert.match(admin, /recordManualShipment/);
   assert.match(admin, /markManualShipmentDelivered/);
 });
+
+test("commerce-mode inheritance uses table-specific triggers", async () => {
+  const sql = await read("supabase/migrations/0015_fix_commerce_mode_triggers.sql");
+  assert.match(sql, /notification_inherit_order_commerce_mode/);
+  assert.match(sql, /audit_inherit_order_commerce_mode/);
+  assert.match(sql, /payment_inherit_order_commerce_mode/);
+  const auditFunction = sql.match(/create function public\.audit_inherit_order_commerce_mode\(\)[\s\S]*?end;\n\$\$;/)?.[0] ?? "";
+  assert.doesNotMatch(auditFunction, /aggregate_type/);
+});
