@@ -9,7 +9,7 @@ import {
   FlaskConical, Heart, HelpCircle, Menu, Minus, PackageCheck, Plus, Search,
   ShieldCheck, ShoppingBag, SlidersHorizontal, Trash2, X
 } from "lucide-react";
-import { articles, batches, categories, products } from "@/lib/data";
+import { articles, batches, products } from "@/lib/data";
 import type { DemoOrder, Product } from "@/lib/types";
 import { Badge, Button, Card, Input, Select, Separator } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
@@ -91,13 +91,13 @@ function ProductCard({ product }: { product: Product }) {
     toggleCompare(product.id);
   }
   return <article className="product-card">
-    <Link href={`/products/${product.slug}`}><ProductVisual product={product} /></Link>
+    <Link href={`/products/${product.slug}`}>{product.primaryImageUrl?<div className="catalog-product-image"><Image src={product.primaryImageUrl} alt={product.primaryImageAlt??product.name} fill sizes="(max-width: 760px) 100vw, 25vw"/></div>:<ProductVisual product={product} />}</Link>
     <button className={`favorite ${favorites.includes(product.id) ? "active" : ""}`} onClick={() => toggleFavorite(product.id)} aria-label={`Favorite ${product.name}`}><Heart /></button>
     <div className="product-card-body">
       <div className="badge-line"><Badge tone={product.documentStatus === "Batch verified" ? "verified" : product.documentStatus === "Testing pending" ? "warm" : "neutral"}>{product.documentStatus}</Badge><span className={product.status === "Low stock" ? "stock-low" : ""}>{product.status}</span></div>
       <Link href={`/products/${product.slug}`}><h3>{product.name}</h3></Link><p>{product.descriptor}</p>
       <div className="product-meta"><span>{product.variants[0].amount}</span><strong>From {money(product.variants[0].price)}</strong></div>
-      <div className="product-actions"><Button disabled={disabled} onClick={quickAdd}>{disabled ? "Unavailable" : "Quick add"}</Button><Tooltip.Provider><Tooltip.Root><Tooltip.Trigger asChild><button className={`compare-button ${compare.includes(product.id) ? "active" : ""}`} aria-pressed={compare.includes(product.id)} onClick={handleCompare} aria-label={`${compare.includes(product.id) ? "Remove" : "Add"} ${product.name} ${compare.includes(product.id) ? "from" : "to"} comparison`}><SlidersHorizontal /></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="tooltip">{compare.includes(product.id) ? "Remove from comparison" : "Add to comparison"}<Tooltip.Arrow /></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider></div>
+      <div className="product-actions">{product.databaseBacked?<Button asChild><Link href={`/products/${product.slug}`}>View product</Link></Button>:<Button disabled={disabled} onClick={quickAdd}>{disabled ? "Unavailable" : "Quick add"}</Button>}{!product.databaseBacked?<Tooltip.Provider><Tooltip.Root><Tooltip.Trigger asChild><button className={`compare-button ${compare.includes(product.id) ? "active" : ""}`} aria-pressed={compare.includes(product.id)} onClick={handleCompare} aria-label={`${compare.includes(product.id) ? "Remove" : "Add"} ${product.name} ${compare.includes(product.id) ? "from" : "to"} comparison`}><SlidersHorizontal /></button></Tooltip.Trigger><Tooltip.Portal><Tooltip.Content className="tooltip">{compare.includes(product.id) ? "Remove from comparison" : "Add to comparison"}<Tooltip.Arrow /></Tooltip.Content></Tooltip.Portal></Tooltip.Root></Tooltip.Provider>:null}</div>
     </div>
   </article>;
 }
@@ -155,18 +155,20 @@ function HomePage() {
   </main>;
 }
 
-function ShopPage() {
+function ShopPage({databaseProducts=[]}:{databaseProducts?:Product[]}) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("featured");
   const { compare } = useDemo();
+  const catalog=useMemo(()=>[...databaseProducts,...products.filter(product=>!databaseProducts.some(database=>database.slug===product.slug))],[databaseProducts]);
+  const shopCategories=useMemo(()=>["All",...Array.from(new Set(catalog.map(product=>product.category)))],[catalog]);
   const list = useMemo(() => {
-    const filtered = products.filter(p => (category === "All" || p.category === category) && `${p.name} ${p.descriptor} ${p.researchArea}`.toLowerCase().includes(query.toLowerCase()));
+    const filtered = catalog.filter(p => (category === "All" || p.category === category) && `${p.name} ${p.descriptor} ${p.researchArea}`.toLowerCase().includes(query.toLowerCase()));
     return [...filtered].sort((a,b) => sort === "price-low" ? a.variants[0].price-b.variants[0].price : sort === "name" ? a.name.localeCompare(b.name) : Number(Boolean(b.featured))-Number(Boolean(a.featured)));
-  }, [query, category, sort]);
-  return <main><PageHero eyebrow="CATALOG / 12 MATERIALS" title="Research products, documented by batch" text="Browse a fictional catalog designed around clear specifications and visible documentation states." />
+  }, [catalog, query, category, sort]);
+  return <main><PageHero eyebrow={`CATALOG / ${catalog.length} MATERIALS`} title="Research products, documented by batch" text="Browse a fictional catalog designed around clear specifications and visible documentation states." />
     <section className="container shop-section"><div className="shop-tools"><label className="search-box"><Search /><Input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search materials or research area" aria-label="Search products" /></label><Select value={sort} onChange={e=>setSort(e.target.value)} aria-label="Sort products"><option value="featured">Featured first</option><option value="price-low">Price: low to high</option><option value="name">Name</option></Select></div>
-      <div className="filter-row">{categories.map(c=><button key={c} className={category===c?"active":""} onClick={()=>setCategory(c)}>{c}</button>)}</div>
+      <div className="filter-row">{shopCategories.map(c=><button key={c} className={category===c?"active":""} onClick={()=>setCategory(c)}>{c}</button>)}</div>
       <CompareSelectionBar selectedIds={compare}/>
       <div className="results-line"><span>{list.length} products</span><span>All content is fictional</span></div>
       {list.length ? <div className="product-grid">{list.map(p=><ProductCard key={p.id} product={p}/>)}</div> : <EmptyState title="No materials found" text="Try another search or clear the current category." action={()=>{setQuery("");setCategory("All")}} />}
@@ -266,11 +268,11 @@ function Spec({label,value}:{label:string;value:string}){return <div className="
 function EmptyState({title,text,action,href,actionLabel="Clear filters"}:{title:string;text:string;action?:()=>void;href?:string;actionLabel?:string}){return <Card className="empty-state"><HelpCircle/><h3>{title}</h3><p>{text}</p>{href?<Button asChild variant="outline"><Link href={href}>{actionLabel}</Link></Button>:action&&<Button variant="outline" onClick={action}>{actionLabel}</Button>}</Card>}
 function NotFound(){return <main><div className="container not-found"><span className="eyebrow">404 / NOT FOUND</span><h1>This record is not in the demonstration</h1><p>The route or identifier does not match the fictional prototype data.</p><Button asChild><Link href="/shop">Return to catalog</Link></Button></div></main>}
 
-function Router({path,databaseProduct}:{path:string;databaseProduct?:Product}) {
+function Router({path,databaseProduct,databaseProducts}:{path:string;databaseProduct?:Product;databaseProducts?:Product[]}) {
   const clean=path.replace(/^\/|\/$/g,""); const parts=clean.split("/");
-  if(!clean)return <HomePage/>; if(clean==="shop")return <ShopPage/>; if(parts[0]==="products")return <ProductPage slug={parts[1]||""} databaseProduct={databaseProduct}/>; if(clean==="batch")return <BatchPage/>; if(clean==="quality")return <QualityPage/>; if(parts[0]==="research")return <ResearchPage slug={parts[1]}/>; if(clean==="support")return <SupportPage/>; if(clean==="account")return <AccountPage/>; if(clean==="cart")return <CartPage/>; if(clean==="checkout")return <CheckoutPage/>; if(clean==="compare")return <ComparePage/>; return <NotFound/>;
+  if(!clean)return <HomePage/>; if(clean==="shop")return <ShopPage databaseProducts={databaseProducts}/>; if(parts[0]==="products")return <ProductPage slug={parts[1]||""} databaseProduct={databaseProduct}/>; if(clean==="batch")return <BatchPage/>; if(clean==="quality")return <QualityPage/>; if(parts[0]==="research")return <ResearchPage slug={parts[1]}/>; if(clean==="support")return <SupportPage/>; if(clean==="account")return <AccountPage/>; if(clean==="cart")return <CartPage/>; if(clean==="checkout")return <CheckoutPage/>; if(clean==="compare")return <ComparePage/>; return <NotFound/>;
 }
 
-export function Storefront({path,databaseProduct}:{path:string;databaseProduct?:Product}) {
-  return <Tooltip.Provider delayDuration={250}><Header/><Router path={path} databaseProduct={databaseProduct}/><Footer/><VerificationGate/></Tooltip.Provider>;
+export function Storefront({path,databaseProduct,databaseProducts}:{path:string;databaseProduct?:Product;databaseProducts?:Product[]}) {
+  return <Tooltip.Provider delayDuration={250}><Header/><Router path={path} databaseProduct={databaseProduct} databaseProducts={databaseProducts}/><Footer/><VerificationGate/></Tooltip.Provider>;
 }

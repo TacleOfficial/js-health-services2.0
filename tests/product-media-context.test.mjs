@@ -40,6 +40,9 @@ test("product context is allowlisted and public PDP prefers database content", a
   assert.match(context, /Only secure links are allowed/);
   assert.match(context, /product-media/);
   assert.match(route, /\.eq\("status","active"\)/);
+  assert.match(route, /slug\[0\]==="shop"/);
+  assert.match(storefront, /ShopPage databaseProducts=\{databaseProducts\}/);
+  assert.match(storefront, /databaseProducts,\.\.\.products\.filter/);
   assert.match(storefront, /ProductContextRenderer/);
   assert.match(storefront, /primaryImageUrl/);
 });
