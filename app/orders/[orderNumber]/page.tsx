@@ -50,7 +50,7 @@ export default async function OrderStatusPage({
   return <CommerceShell><main className="container order-status-page">
     <span className="eyebrow">SECURE {String(mode).toUpperCase()} ORDER STATUS</span>
     <div className="order-status-heading"><div><h1>{orderNumber}</h1><p>Placed {new Date(order.created_at).toLocaleDateString()} · {formatUsd(order.total_cents)}</p></div><Badge tone={order.payment_status==="verified"?"verified":"warm"}>{String(order.order_status).replaceAll("_"," ")}</Badge></div>
-    {guest&&<form action={claimGuestOrder} className="claim-order-form"><input type="hidden" name="orderNumber" value={order.order_number}/><span>Signed in with the buyer email?</span><Button variant="outline">Claim this order</Button></form>}
+    {guest&&<form action={claimGuestOrder} className="claim-order-form"><input type="hidden" name="orderNumber" value={order.order_number}/><span>Sign in to claim this order for points.</span><Button variant="outline">Claim this order</Button></form>}
     {query.report==="submitted"?<div className="admin-success">Payment details submitted for administrator review.</div>:null}
     {query.email==="failed"?<div className="demo-alert"><Info/><div><strong>Staging email not delivered</strong><p>The order is safe and accessible in this browser, but its controlled-inbox access email needs to be retried.</p></div></div>:null}
     {query.report==="invalid"||query.report==="failed"?<div className="demo-alert"><Info/><div><strong>Payment report not submitted</strong><p>Review the fictional payment details and try again.</p></div></div>:null}
