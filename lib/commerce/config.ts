@@ -12,7 +12,9 @@ const envSchema = z.object({
   BREVO_API_KEY: z.string().min(1).optional(),
   BREVO_SENDER_EMAIL: z.email().optional(),
   BREVO_SENDER_NAME: z.string().default("Velle Research"),
+  STAGING_TEST_INBOX: z.email().optional(),
   COMMERCE_ENABLED: optionalBoolean,
+  STAGING_ORDER_TEST_MODE: optionalBoolean,
   ZELLE_ENABLED: optionalBoolean,
   CASH_APP_ENABLED: optionalBoolean,
 });
@@ -21,8 +23,15 @@ export const commerceConfig = envSchema.parse(process.env);
 
 export const commerceReadiness = {
   database: Boolean(commerceConfig.NEXT_PUBLIC_SUPABASE_URL && commerceConfig.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
-  tax: Boolean(commerceConfig.STRIPE_SECRET_KEY),
+  tax: commerceConfig.STAGING_ORDER_TEST_MODE || Boolean(commerceConfig.STRIPE_SECRET_KEY),
   shipping: Boolean(commerceConfig.SHIPPO_API_TOKEN),
-  email: Boolean(commerceConfig.BREVO_API_KEY && commerceConfig.BREVO_SENDER_EMAIL),
+  email: Boolean(commerceConfig.BREVO_API_KEY && commerceConfig.BREVO_SENDER_EMAIL && commerceConfig.STAGING_TEST_INBOX),
   liveCheckout: commerceConfig.COMMERCE_ENABLED,
 };
+
+export function assertStagingCheckoutEnabled() {
+  if (!commerceConfig.COMMERCE_ENABLED || !commerceConfig.STAGING_ORDER_TEST_MODE) {
+    throw new Error("The guest staging checkout is disabled.");
+  }
+  if (!commerceConfig.STAGING_TEST_INBOX) throw new Error("The staging test inbox is not configured.");
+}
