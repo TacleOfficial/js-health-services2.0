@@ -11,7 +11,7 @@ type Line = { id:string; sku:string; productTitle:string; variantTitle:string; p
 type Details = { firstName:string;lastName:string;email:string;line1:string;line2:string;city:string;state:string;postalCode:string;phone:string;eligibilityAccepted:boolean };
 const empty: Details = { firstName:"",lastName:"",email:"",line1:"",line2:"",city:"",state:"",postalCode:"",phone:"",eligibilityAccepted:false };
 
-export function StagingCheckout({ ready, basket, mode }: { ready:Record<string,boolean>; basket:Line[]; mode:"staging"|"production" }) {
+export function StagingCheckout({ ready, basket, mode, shippingMode, fixedShippingCents }: { ready:Record<string,boolean>; basket:Line[]; mode:"staging"|"production"; shippingMode:"shippo"|"manual_free"|"manual_fixed"; fixedShippingCents:number }) {
   const [method,setMethod]=useState<PaymentMethod>("zelle");
   const [step,setStep]=useState<"details"|"payment">("details");
   const [details,setDetails]=useState(empty);
@@ -21,13 +21,13 @@ export function StagingCheckout({ ready, basket, mode }: { ready:Record<string,b
   const [error,setError]=useState(""); const [pending,startTransition]=useTransition();
   const items=basket.filter(x=>(quantities[x.id]||0)>0).map(x=>({variantId:x.id,quantity:quantities[x.id]}));
   const subtotal=basket.reduce((sum,x)=>sum+x.priceCents*(quantities[x.id]||0),0);
-  const shipping=mode==="staging"?1800:selectedRate?.amountCents??0;
+  const shipping=mode==="staging"?1800:shippingMode==="manual_free"?0:shippingMode==="manual_fixed"?fixedShippingCents:selectedRate?.amountCents??0;
   const total=subtotal+shipping;
   const readyToStart=mode==="staging"?Object.values(ready).every(Boolean)&&basket.length===2:basket.length>0;
   const update=<K extends keyof Details>(key:K,value:Details[K])=>setDetails(current=>({...current,[key]:value}));
 
   function continueCheckout() {
-    if(mode==="staging"){setStep("payment");return;}
+    if(mode==="staging"||shippingMode!=="shippo"){setStep("payment");return;}
     setError(""); startTransition(async()=>{
       const result=await quoteProductionShipping({...details,items});
       if(!result.ok){setError(result.message);return;}
@@ -61,12 +61,12 @@ export function StagingCheckout({ ready, basket, mode }: { ready:Record<string,b
         <div className="form-actions"><Button type="submit" disabled={!readyToStart||!items.length||pending}>{pending?"Checking address and rates…":"Continue to payment method"}</Button></div>
       </form></Card>:<Card className="commerce-form-card">
         <span className="eyebrow">SELECT PAYMENT METHOD</span><h2>Send outside the website, then report it here</h2>
-        {mode==="production"&&<div className="shipping-rates"><strong>Shipping rate</strong>{rates.map(rate=><button type="button" className={selectedRate?.rateId===rate.rateId?"active":""} onClick={()=>setSelectedRate(rate)} key={rate.rateId}><span>{rate.label}{rate.estimatedDays?` · ${rate.estimatedDays} days`:""}</span><strong>{formatUsd(rate.amountCents)}</strong></button>)}</div>}
+        {mode==="production"&&shippingMode==="shippo"&&<div className="shipping-rates"><strong>Shipping rate</strong>{rates.map(rate=><button type="button" className={selectedRate?.rateId===rate.rateId?"active":""} onClick={()=>setSelectedRate(rate)} key={rate.rateId}><span>{rate.label}{rate.estimatedDays?` · ${rate.estimatedDays} days`:""}</span><strong>{formatUsd(rate.amountCents)}</strong></button>)}</div>}
         <div className="payment-methods">{(["zelle","cash_app"] as const).map(value=><button key={value} type="button" className={method===value?"payment-method active":"payment-method"} onClick={()=>setMethod(value)}><span>{value==="zelle"?"Z":"$"}</span><div><strong>{value==="zelle"?"Zelle":"Cash App"}</strong><small>Manual verification</small></div>{method===value&&<Check/>}</button>)}</div>
         <div className="instruction-panel"><div><Badge tone="dark">{method==="zelle"?"ZELLE":"CASH APP"}</Badge><span className="eyebrow">EXACT AMOUNT</span></div><strong className="instruction-total">{formatUsd(total)}</strong><dl><div><dt>Destination</dt><dd>{mode==="staging"?(method==="zelle"?"test-only@example.invalid":"$TEST-NO-FUNDS"):"Shown securely after order creation"}</dd></div><div><dt>Payment window</dt><dd>24 hours after order creation</dd></div></dl></div>
         <div className="truth-callout"><Info/><p><strong>{mode==="staging"?"Do not send funds.":"Reports do not confirm payment."}</strong> An authorized reviewer independently verifies cleared funds before fulfillment.</p></div>
-        <div className="form-actions"><Button variant="outline" onClick={()=>setStep("details")} disabled={pending}>Back</Button><Button onClick={createOrder} disabled={pending||(mode==="production"&&!selectedRate)}>{pending?"Creating order…":"Create secured order"}</Button></div>
+        <div className="form-actions"><Button variant="outline" onClick={()=>setStep("details")} disabled={pending}>Back</Button><Button onClick={createOrder} disabled={pending||(mode==="production"&&shippingMode==="shippo"&&!selectedRate)}>{pending?"Creating order…":"Create secured order"}</Button></div>
       </Card>}
-    </div><Card className="order-summary commerce-summary"><span className="eyebrow">ORDER SNAPSHOT</span>{basket.filter(x=>(quantities[x.id]||0)>0).map(line=><div key={line.id}><span>{line.productTitle} · {line.variantTitle} × {quantities[line.id]}</span><strong>{formatUsd(line.priceCents*quantities[line.id])}</strong></div>)}<Separator/><div><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div><div><span>{mode==="staging"?"Documented handling":"Shipping"}</span><strong>{mode==="production"&&!selectedRate?"Select rate":formatUsd(shipping)}</strong></div><div><span>Tax</span><strong>{mode==="staging"?"Skipped for test":"Calculated server-side"}</strong></div><div className="total"><span>Preview total</span><strong>{formatUsd(total)}</strong></div><div className="secure-line"><ShieldCheck/><span>Prices, stock, shipping, and tax are revalidated by the server.</span></div></Card></section>
+    </div><Card className="order-summary commerce-summary"><span className="eyebrow">ORDER SNAPSHOT</span>{basket.filter(x=>(quantities[x.id]||0)>0).map(line=><div key={line.id}><span>{line.productTitle} · {line.variantTitle} × {quantities[line.id]}</span><strong>{formatUsd(line.priceCents*quantities[line.id])}</strong></div>)}<Separator/><div><span>Subtotal</span><strong>{formatUsd(subtotal)}</strong></div><div><span>{mode==="staging"?"Documented handling":"Shipping"}</span><strong>{mode==="production"&&shippingMode==="shippo"&&!selectedRate?"Select rate":shipping===0?"Free":formatUsd(shipping)}</strong></div><div><span>Tax</span><strong>{mode==="staging"?"Skipped for test":"Calculated server-side"}</strong></div><div className="total"><span>Preview total</span><strong>{formatUsd(total)}</strong></div><div className="secure-line"><ShieldCheck/><span>Prices, stock, shipping, and tax are revalidated by the server.</span></div></Card></section>
   </main>;
 }

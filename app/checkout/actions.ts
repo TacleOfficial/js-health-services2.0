@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 import { commerceConfig } from "@/lib/commerce/config";
-import { assertRuntimeCheckoutEnabled } from "@/lib/commerce/runtime";
+import { assertRuntimeCheckoutEnabled, getShippingSettings } from "@/lib/commerce/runtime";
 import { createGuestAccessToken, hashGuestAccessToken, rateLimitStaging } from "@/lib/commerce/guest-access";
 import { formatUsd } from "@/lib/commerce/money";
 import { createOrderNumber } from "@/lib/commerce/order-number";
@@ -49,6 +49,8 @@ export async function quoteProductionShipping(raw: unknown): Promise<{ ok: true;
   try {
     const runtime = await assertRuntimeCheckoutEnabled();
     if (runtime.mode !== "production") return { ok: false, message: "Shipping quotes are available in production mode only." };
+    const shippingSettings = await getShippingSettings();
+    if (shippingSettings.mode !== "shippo") return { ok:false,message:"Live shipping rates are disabled." };
     await rateLimitStaging("shipping-quote", 15, 3600);
     const input = quoteSchema.parse(raw);
     const variants = await loadVariants(input.items);
@@ -76,6 +78,7 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
   if (!parsed.success) return { ok: false, message: "Review the highlighted checkout details.", fields: parsed.error.flatten().fieldErrors as Record<string,string[]> };
   const input = parsed.data;
   const db = createSupabaseServiceClient();
+  const shippingSettings = await getShippingSettings();
   let items = input.items ?? [];
   if (runtime.mode === "staging") {
     const { data } = await db.from("product_variants").select("id").in("sku", ["ATL-5MG-STAGING","HLX-5MG-STAGING"]).eq("status","active");
@@ -99,7 +102,7 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
   }
   const subtotal = variants.reduce((sum, variant) => sum + variant.price_cents * items.find(item => item.variantId === variant.id)!.quantity, 0);
   let shippingCents = 1800, shippoRateId = "staging-flat-handling", shippingSnapshot: Record<string, unknown> = { staging: true };
-  if (runtime.mode === "production") {
+  if (runtime.mode === "production" && shippingSettings.mode === "shippo") {
     if (!input.shippoRateId || !input.shippoShipmentId || !input.shippoRateSnapshot) return { ok: false, message: "Select a current Shippo shipping rate." };
     let verifiedRate;
     try { verifiedRate = await retrieveShippoRate(input.shippoRateId); } catch { return { ok: false, message: "The selected Shippo rate is no longer available." }; }
@@ -107,6 +110,10 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
     shippingCents = Math.round(Number(verifiedRate.amount) * 100);
     if (!Number.isSafeInteger(shippingCents) || shippingCents < 0) return { ok: false, message: "The shipping rate amount is invalid." };
     shippoRateId = input.shippoRateId; shippingSnapshot = { shipment_id:verifiedRate.shipment,rate_id:verifiedRate.object_id,amount:verifiedRate.amount,currency:verifiedRate.currency,provider:verifiedRate.provider,service_level:verifiedRate.servicelevel,estimated_days:verifiedRate.estimated_days };
+  } else if (runtime.mode === "production") {
+    shippingCents = shippingSettings.mode === "manual_free" ? 0 : shippingSettings.fixedPriceCents;
+    shippoRateId = `${shippingSettings.mode}:v${shippingSettings.version}`;
+    shippingSnapshot = { source:shippingSettings.mode,settings_version:shippingSettings.version,amount_cents:shippingCents };
   }
   let taxCents = 0, taxSource: "staging_zero"|"manual_rate" = "staging_zero";
   let stripeTaxId: string|null = null, manualRateId: string|null = null;
@@ -137,7 +144,7 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
     p_address_validation_status: "validated", p_address_validation_snapshot: addressSnapshot,
   });
   if (error || !order) return { ok: false, message: error?.message.includes("insufficient_inventory") ? "An item is no longer available." : "The order could not be created." };
-  if (runtime.mode === "production") await db.from("shippo_shipments").insert({ order_id: order.id, commerce_mode: "production", shippo_shipment_id: input.shippoShipmentId, shippo_rate_id: shippoRateId, rate_snapshot: shippingSnapshot });
+  if (runtime.mode === "production" && shippingSettings.mode === "shippo") await db.from("shippo_shipments").insert({ order_id: order.id, commerce_mode: "production", shippo_shipment_id: input.shippoShipmentId, shippo_rate_id: shippoRateId, rate_snapshot: shippingSnapshot });
   const requestHeaders = await headers(); const host = requestHeaders.get("host") || "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
   const accessPath = `/orders/access/${token}`; let emailWarning: string|undefined;

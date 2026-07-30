@@ -191,7 +191,12 @@
 .tax-rate-list { display: grid; gap: 8px; }
 .tax-rate-list > div { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; border-top: 1px solid var(--q-line); padding: 12px 0; }
 .admin-note { padding-top: 15px; border-top: 1px solid var(--q-line); }
+.shipping-settings-form { display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-top:22px;padding-top:20px;border-top:1px solid var(--q-line); }
+.shipping-settings-form label { display:grid;gap:7px;font-size:12px; }
+.shipping-settings-form select { min-height:46px;border:1px solid var(--q-line);border-radius:8px;background:#fff;padding:0 12px;color:var(--q-ink); }
+.manual-shipment-form { display:grid;grid-template-columns:repeat(3,minmax(120px,1fr)) auto;gap:8px;padding:10px 0 16px; }
 @media(max-width:760px) {
   .readiness-list { grid-template-columns: 1fr; }
   .mode-switch-form, .destination-form, .tax-rate-form { grid-template-columns: 1fr; }
+  .shipping-settings-form, .manual-shipment-form { grid-template-columns:1fr; }
 }

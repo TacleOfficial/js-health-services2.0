@@ -3,7 +3,7 @@ import { CommerceShell } from "@/components/commerce-shell";
 import { StagingCheckout } from "@/components/staging-checkout";
 import { commerceReadiness } from "@/lib/commerce/config";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { getCommerceRuntime } from "@/lib/commerce/runtime";
+import { getCommerceRuntime, getShippingSettings } from "@/lib/commerce/runtime";
 
 export const metadata: Metadata = {
   title: "Private staging checkout",
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function CheckoutPage() {
   let basket: Array<{id:string;sku:string;productTitle:string;variantTitle:string;priceCents:number}> = [];
   const runtime = await getCommerceRuntime();
+  const shippingSettings = await getShippingSettings();
   try {
     const db = createSupabaseServiceClient();
     let query = db.from("product_variants").select("id,sku,title,price_cents,products!inner(title,category,status),inventory_items!inner(on_hand,committed)")
@@ -26,5 +27,5 @@ export default async function CheckoutPage() {
       return { id: row.id, sku: row.sku, productTitle: product?.title ?? "Item", variantTitle: row.title, priceCents: row.price_cents };
     }).filter(row => runtime.mode === "staging" || !row.sku.endsWith("-STAGING"));
   } catch {}
-  return <CommerceShell><StagingCheckout ready={commerceReadiness} basket={basket} mode={runtime.mode}/></CommerceShell>;
+  return <CommerceShell><StagingCheckout ready={commerceReadiness} basket={basket} mode={runtime.mode} shippingMode={shippingSettings.mode} fixedShippingCents={shippingSettings.fixedPriceCents}/></CommerceShell>;
 }

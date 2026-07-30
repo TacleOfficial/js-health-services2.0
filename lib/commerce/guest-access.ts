@@ -29,7 +29,7 @@ export async function getGuestOrderAccess(orderNumber?: string) {
   const token = (await cookies()).get(guestAccessCookie)?.value;
   if (!token) return null;
   const db = createSupabaseServiceClient();
-  let query = db.from("orders").select("*,order_items(*),payment_submissions(*)")
+  let query = db.from("orders").select("*,order_items(*),payment_submissions(*),manual_shipments(*)")
     .eq("guest_access_token_hash", hashGuestAccessToken(token))
     .gt("guest_access_expires_at", new Date().toISOString())
     .is("customer_user_id", null);

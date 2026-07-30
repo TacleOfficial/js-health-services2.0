@@ -27,7 +27,7 @@ export default async function OrderStatusPage({
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const result = await supabase.from("orders").select("*,order_items(*),payment_submissions(*)")
+      const result = await supabase.from("orders").select("*,order_items(*),payment_submissions(*),manual_shipments(*)")
         .eq("order_number",orderNumber).eq("customer_user_id",user.id).maybeSingle();
       order = result.data;
     }
@@ -63,6 +63,7 @@ export default async function OrderStatusPage({
     <div className="order-detail-grid">
       <Card><h2>Items</h2>{order.order_items.map((item:{id:string;product_title:string;variant_title:string;quantity:number;line_total_cents:number})=><div className="order-line" key={item.id}><div><strong>{item.product_title}</strong><span>{item.variant_title} · Qty {item.quantity}</span></div><strong>{formatUsd(item.line_total_cents)}</strong></div>)}</Card>
       <Card><h2>Ship to</h2><p>{shipping?.recipient_name||shipping?.name}<br/>{shipping?.line1}<br/>{shipping?.line2&&<>{shipping.line2}<br/></>}{shipping?.city}, {shipping?.region||shipping?.state} {shipping?.postal_code||shipping?.postalCode}</p><Badge tone={order.address_validation_status==="validated"?"verified":"warm"}>{order.address_validation_status==="validated"?"Shippo validated":"Address unverified"}</Badge></Card>
+      {order.manual_shipments?.[0]&&<Card><h2>Tracking</h2><p><strong>{order.manual_shipments[0].carrier}</strong><br/>{order.manual_shipments[0].tracking_number}</p>{order.manual_shipments[0].tracking_url&&<Button asChild variant="outline"><a href={order.manual_shipments[0].tracking_url} target="_blank" rel="noreferrer">Track shipment</a></Button>}</Card>}
     </div>
     {canReport?<Card className="guest-payment-report">
       <span className="eyebrow">{mode==="staging"?"FICTIONAL PAYMENT REPORT":"PAYMENT REPORT"}</span><h2>{mode==="staging"?"Report a test payment":"Report your payment"}</h2>

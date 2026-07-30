@@ -30,3 +30,16 @@ test("labels require verified payment, production mode, an explicit hard gate, a
   assert.match(action, /order\.payment_status !== "verified"/);
   assert.match(action, /idempotency_key/);
 });
+
+test("shipping modes isolate Shippo and manual fulfillment", async () => {
+  const sql = await read("supabase/migrations/0013_shipping_modes.sql");
+  const checkout = await read("app/checkout/actions.ts");
+  const admin = await read("app/admin/actions.ts");
+  assert.match(sql, /'shippo','manual_free','manual_fixed'/);
+  assert.match(sql, /shipping_snapshot_is_immutable/);
+  assert.match(sql, /stale_shipping_settings_version/);
+  assert.match(checkout, /shippingSettings\.mode === "manual_free" \? 0/);
+  assert.match(admin, /order\.shipping_mode !== "shippo"/);
+  assert.match(admin, /recordManualShipment/);
+  assert.match(admin, /markManualShipmentDelivered/);
+});

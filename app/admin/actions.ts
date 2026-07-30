@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/account";
 import { adminProductSchema, type AdminProductActionState } from "@/lib/admin-products";
 import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { getCommerceRuntime, getProductionReadiness } from "@/lib/commerce/runtime";
+import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from "@/lib/commerce/runtime";
 import { purchaseShippoLabel } from "@/lib/providers/shippo";
 import { sendOrderLifecycleEmail } from "@/lib/providers/brevo";
 
@@ -98,7 +98,7 @@ export async function purchaseOrderLabel(data: FormData) {
   const idempotencyKey = z.string().uuid().parse(value(data, "idempotency_key"));
   const db = createSupabaseServiceClient();
   const { data: order } = await db.from("orders").select("*,shippo_shipments(*)").eq("id",orderId).single();
-  if (!order || order.commerce_mode !== "production" || order.payment_status !== "verified" || order.fulfillment_status !== "ready_for_fulfillment") {
+  if (!order || order.commerce_mode !== "production" || order.shipping_mode !== "shippo" || order.payment_status !== "verified" || order.fulfillment_status !== "ready_for_fulfillment") {
     throw new Error("A production label can be purchased only after payment approval.");
   }
   const shipment = Array.isArray(order.shippo_shipments) ? order.shippo_shipments[0] : order.shippo_shipments;
@@ -125,6 +125,50 @@ export async function purchaseOrderLabel(data: FormData) {
     await db.from("shippo_label_attempts").update({ status:"failed",error_code:"provider_error",provider_response:(error as any).providerResponse??{},completed_at:new Date().toISOString() }).eq("id",attempt.id);
     throw error;
   }
+  revalidatePath("/admin");
+}
+
+export async function changeShippingSettings(data: FormData) {
+  const user=await requireSuperAdmin();
+  const mode=z.enum(["shippo","manual_free","manual_fixed"]).parse(value(data,"shipping_mode"));
+  const fixedPrice=Math.round(z.coerce.number().min(0).max(10000).parse(value(data,"fixed_price"))*100);
+  const expectedVersion=z.coerce.number().int().positive().parse(value(data,"expected_version"));
+  const current=await getShippingSettings();
+  if(current.version!==expectedVersion)throw new Error("Shipping settings changed in another session. Refresh and try again.");
+  const db=createSupabaseServiceClient();
+  const {error}=await db.rpc("set_shipping_settings",{p_actor_id:user.id,p_mode:mode,p_fixed_price_cents:fixedPrice,p_expected_version:expectedVersion});
+  if(error)throw new Error(error.message);
+  revalidatePath("/","layout");
+}
+
+export async function recordManualShipment(data:FormData){
+  const {supabase,user}=await requireAdmin();
+  const {data:allowed}=await supabase.rpc("has_admin_role",{allowed:["fulfillment","manager","super_admin"]});
+  if(!allowed)throw new Error("Fulfillment authorization is required.");
+  const input=z.object({orderId:z.uuid(),carrier:z.string().trim().min(2).max(80),trackingNumber:z.string().trim().min(3).max(160),trackingUrl:z.union([z.literal(""),z.url()]),idempotencyKey:z.uuid()}).parse({
+    orderId:value(data,"order_id"),carrier:value(data,"carrier"),trackingNumber:value(data,"tracking_number"),trackingUrl:value(data,"tracking_url"),idempotencyKey:value(data,"idempotency_key"),
+  });
+  const db=createSupabaseServiceClient();
+  const {data:order}=await db.from("orders").select("*").eq("id",input.orderId).single();
+  if(!order||order.commerce_mode!=="production"||!["manual_free","manual_fixed"].includes(order.shipping_mode)||order.payment_status!=="verified"||order.fulfillment_status!=="ready_for_fulfillment")throw new Error("Manual shipment requires an approved manual-shipping order.");
+  const {error}=await db.from("manual_shipments").insert({order_id:order.id,commerce_mode:order.commerce_mode,shipping_mode:order.shipping_mode,carrier:input.carrier,tracking_number:input.trackingNumber,tracking_url:input.trackingUrl||null,idempotency_key:input.idempotencyKey,created_by:user.id});
+  if(error&&!error.message.includes("duplicate"))throw new Error(error.message);
+  await db.from("orders").update({fulfillment_status:"shipped",order_status:"processing",updated_at:new Date().toISOString()}).eq("id",order.id);
+  await db.from("audit_events").insert({order_id:order.id,event_type:"shipment.manual_recorded",actor_type:"admin",actor_id:user.id,commerce_mode:order.commerce_mode,new_value:{carrier:input.carrier,tracking_number:input.trackingNumber}});
+  try{await sendOrderLifecycleEmail({buyerEmail:order.customer_email,orderNumber:order.order_number,event:"Shipment created",detail:`Your order shipped with ${input.carrier}. Tracking: ${input.trackingNumber}`,idempotencyKey:`manual-shipped:${order.id}`,commerceMode:"production"});}catch{}
+  revalidatePath("/admin");
+}
+
+export async function markManualShipmentDelivered(data:FormData){
+  const {supabase,user}=await requireAdmin();
+  const {data:allowed}=await supabase.rpc("has_admin_role",{allowed:["fulfillment","manager","super_admin"]});
+  if(!allowed)throw new Error("Fulfillment authorization is required.");
+  const orderId=z.string().uuid().parse(value(data,"order_id"));const db=createSupabaseServiceClient();
+  const {data:order}=await db.from("orders").select("*,manual_shipments!inner(id,status)").eq("id",orderId).single();
+  if(!order||order.fulfillment_status!=="shipped"||!["manual_free","manual_fixed"].includes(order.shipping_mode))throw new Error("Manual shipment is not eligible for delivery.");
+  await db.from("manual_shipments").update({status:"delivered",delivered_by:user.id,delivered_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("order_id",order.id);
+  await db.from("orders").update({fulfillment_status:"delivered",order_status:"completed",updated_at:new Date().toISOString()}).eq("id",order.id);
+  try{await sendOrderLifecycleEmail({buyerEmail:order.customer_email,orderNumber:order.order_number,event:"Delivered",detail:"Your order has been marked delivered.",idempotencyKey:`manual-delivered:${order.id}`,commerceMode:"production"});}catch{}
   revalidatePath("/admin");
 }
 
