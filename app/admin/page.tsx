@@ -136,7 +136,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
     {view === "settings" && <div className="commerce-settings-grid">
       {isSuperAdmin && <Card className="admin-sms-panel">
-        <div className="admin-data-head"><MessageSquareText/><div><h2>Manager SMS alerts</h2><p>Brevo alerts are independent from push notifications. {process.env.ADMIN_SMS_ENABLED==="true" ? "Live delivery is enabled." : "Live delivery is disabled by ADMIN_SMS_ENABLED."}</p></div><Badge tone={process.env.BREVO_API_KEY&&process.env.BREVO_SMS_SENDER&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.BREVO_API_KEY&&process.env.BREVO_SMS_SENDER&&process.env.APP_BASE_URL?"Configured":"Configuration required"}</Badge></div>
+        <div className="admin-data-head"><MessageSquareText/><div><h2>Manager SMS alerts</h2><p>Brevo alerts are independent from push notifications. {process.env.ADMIN_SMS_ENABLED==="true" ? "Live delivery is enabled." : "Live delivery is disabled by ADMIN_SMS_ENABLED."}</p></div><Badge tone={process.env.BREVO_API_KEY&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.BREVO_API_KEY&&process.env.APP_BASE_URL?"Configured":"Configuration required"}</Badge></div>
         {smsFailureCount > 0 && <p className="admin-sms-warning">{smsFailureCount} SMS delivery {smsFailureCount===1?"failure requires":"failures require"} review.</p>}
         <div className="admin-sms-list">{smsReviewers.map(reviewer => <AdminSmsControls key={reviewer.userId} reviewer={reviewer}/>)}</div>
         {!smsReviewers.length && <div className="admin-empty"><MessageSquareText/><h3>No eligible reviewers</h3><p>Assign an active payment reviewer, manager, or super-admin role first.</p></div>}

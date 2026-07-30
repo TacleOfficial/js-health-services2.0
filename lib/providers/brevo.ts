@@ -12,8 +12,8 @@ export async function sendTransactionalSms(input: {
   tag: string;
 }) {
   const apiKey = process.env.BREVO_API_KEY;
-  const sender = process.env.BREVO_SMS_SENDER;
-  if (!apiKey || !sender) throw new Error("Brevo SMS is not configured");
+  const sender = process.env.BREVO_SMS_SENDER ?? process.env.BREVO_SENDER_NAME ?? "Velle";
+  if (!apiKey) throw new Error("Brevo API key is not configured");
   const response = await fetch("https://api.brevo.com/v3/transactionalSMS/send", {
     method: "POST",
     headers: { "api-key": apiKey, accept: "application/json", "content-type": "application/json" },
