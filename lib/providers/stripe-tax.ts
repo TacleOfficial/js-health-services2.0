@@ -10,7 +10,7 @@ export interface TaxQuoteInput {
     postalCode: string;
     country: "US";
   };
-  lines: Array<{ reference: string; amountCents: number; quantity: number; taxCode: string }>;
+  lines: Array<{ reference: string; amountCents: number; quantity: number; taxCode?: string }>;
   shippingCents: number;
 }
 
@@ -30,7 +30,7 @@ export async function createStripeTaxQuote(input: TaxQuoteInput) {
     params.set(`line_items[${index}][reference]`, line.reference);
     params.set(`line_items[${index}][amount]`, String(line.amountCents));
     params.set(`line_items[${index}][quantity]`, String(line.quantity));
-    params.set(`line_items[${index}][tax_code]`, line.taxCode);
+    if (line.taxCode) params.set(`line_items[${index}][tax_code]`, line.taxCode);
   });
   const response = await fetch("https://api.stripe.com/v1/tax/calculations", {
     method: "POST",
@@ -38,6 +38,17 @@ export async function createStripeTaxQuote(input: TaxQuoteInput) {
     body: params,
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(`Stripe Tax request failed (${response.status})`);
+  if (!response.ok) {
+    let detail = "";
+    try { detail = JSON.stringify(await response.json()); } catch {}
+    throw new StripeTaxError(`Stripe Tax request failed (${response.status})`, response.status >= 500 || response.status === 429, response.status, detail);
+  }
   return response.json() as Promise<{ id: string; amount_total: number; tax_amount_exclusive: number }>;
+}
+
+export class StripeTaxError extends Error {
+  constructor(message: string, public readonly technical: boolean, public readonly status?: number, public readonly detail?: string) {
+    super(message);
+    this.name = "StripeTaxError";
+  }
 }

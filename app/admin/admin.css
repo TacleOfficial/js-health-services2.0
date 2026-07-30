@@ -168,3 +168,28 @@
     width: 100%;
   }
 }
+
+.commerce-settings-grid { display: grid; gap: 20px; }
+.mode-panel, .tax-rates-panel { padding: 28px; }
+.mode-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.mode-panel h2, .tax-rates-panel h2 { margin: 7px 0; font-size: 28px; font-weight: 500; }
+.mode-panel p, .tax-rates-panel p { color: var(--q-muted); }
+.readiness-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 24px 0; }
+.readiness-list > div { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--q-line); border-radius: 10px; }
+.readiness-list span:nth-child(2) { display: flex; flex-direction: column; gap: 3px; }
+.readiness-list small { color: #8b4137; line-height: 1.35; }
+.ready-dot, .blocked-dot { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; flex: none; background: #4d7b64; }
+.blocked-dot { background: #9d4b3f; }
+.mode-switch-form { display: grid; grid-template-columns: minmax(240px,1fr) auto; gap: 9px 12px; align-items: end; border-top: 1px solid var(--q-line); padding-top: 20px; }
+.mode-switch-form label { grid-column: 1/-1; font-size: 12px; }
+.mode-switch-form small { grid-column: 1/-1; color: var(--q-muted); }
+.destination-form, .tax-rate-form { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; padding: 0 18px 18px; }
+.tax-rate-form { grid-template-columns: repeat(2,minmax(0,1fr)); padding: 20px 0; }
+.tax-rate-form button { justify-self: start; }
+.tax-rate-list { display: grid; gap: 8px; }
+.tax-rate-list > div { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; border-top: 1px solid var(--q-line); padding: 12px 0; }
+.admin-note { padding-top: 15px; border-top: 1px solid var(--q-line); }
+@media(max-width:760px) {
+  .readiness-list { grid-template-columns: 1fr; }
+  .mode-switch-form, .destination-form, .tax-rate-form { grid-template-columns: 1fr; }
+}
