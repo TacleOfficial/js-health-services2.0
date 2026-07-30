@@ -5,9 +5,11 @@ import test from "node:test";
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 test("product media uploads are immutable, restricted, and signature checked", async () => {
-  const [actions, migration] = await Promise.all([
+  const [actions, migration, uploader, primitive] = await Promise.all([
     read("app/admin/actions.ts"),
     read("supabase/migrations/0016_product_media_context.sql"),
+    read("components/product-media-uploader.tsx"),
+    read("components/ui/file-upload.tsx"),
   ]);
   assert.match(actions, /file\.size>5_242_880/);
   assert.match(actions, /file contents do not match its image type/);
@@ -15,6 +17,14 @@ test("product media uploads are immutable, restricted, and signature checked", a
   assert.match(actions, /upsert:false/);
   assert.match(migration, /public\.has_admin_role\(array\['manager','super_admin'\]/);
   assert.match(migration, /file_size_limit.*5242880/);
+  for (const part of ["FileUploadDropzone", "FileUploadList", "FileUploadItemPreview", "FileUploadItemDelete"]) {
+    assert.match(uploader, new RegExp(part));
+  }
+  assert.match(uploader, /Preview current/);
+  assert.match(uploader, /downloadFile/);
+  assert.match(uploader, /Dialog\.Content/);
+  assert.match(primitive, /onFileValidate/);
+  assert.match(primitive, /onFileReject/);
 });
 
 test("active products require both accessible images and rich context", async () => {
