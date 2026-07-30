@@ -14,6 +14,31 @@ import { sendOrderLifecycleEmail } from "@/lib/providers/brevo";
 
 const value = (data: FormData, key: string) => String(data.get(key) ?? "");
 
+export type ProductMediaUploadResult={ok:boolean;message?:string;path?:string;url?:string};
+export async function uploadProductMedia(_state:ProductMediaUploadResult,data:FormData):Promise<ProductMediaUploadResult>{
+  const {supabase}=await requireAdmin();const {data:allowed}=await supabase.rpc("has_admin_role",{allowed:["manager","super_admin"]});
+  if(!allowed)throw new Error("Manager authorization is required.");
+  const file=data.get("file");
+  if(!(file instanceof File)||file.size===0)return{ok:false,message:"Choose an image to upload."};
+  if(file.size>5_242_880)return{ok:false,message:"Images must be 5 MB or smaller."};
+  const types:Record<string,{ext:string;signatures:number[][]}>={
+    "image/jpeg":{ext:"jpg",signatures:[[0xff,0xd8,0xff]]},
+    "image/png":{ext:"png",signatures:[[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]]},
+    "image/webp":{ext:"webp",signatures:[[0x52,0x49,0x46,0x46]]},
+  };
+  const spec=types[file.type];if(!spec)return{ok:false,message:"Use a JPG, PNG, or WebP image."};
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const signatureOk=spec.signatures.some(signature=>signature.every((byte,index)=>bytes[index]===byte))
+    &&(file.type!=="image/webp"||String.fromCharCode(...bytes.slice(8,12))==="WEBP");
+  if(!signatureOk)return{ok:false,message:"The file contents do not match its image type."};
+  const folder=z.string().uuid().parse(value(data,"media_key"));
+  const path=`products/${folder}/${crypto.randomUUID()}.${spec.ext}`;
+  const db=createSupabaseServiceClient();
+  const {error}=await db.storage.from("product-media").upload(path,bytes,{contentType:file.type,cacheControl:"31536000",upsert:false});
+  if(error)return{ok:false,message:error.message};
+  return{ok:true,path,url:db.storage.from("product-media").getPublicUrl(path).data.publicUrl};
+}
+
 async function requireSuperAdmin() {
   const { supabase, user } = await requireAdmin();
   const { data } = await supabase.rpc("has_admin_role", { allowed: ["super_admin"] });
@@ -276,7 +301,9 @@ export async function saveAdminProduct(_state: AdminProductActionState, data: Fo
   }));
   const { data: productId, error } = await supabase.rpc("admin_save_product", {
     p_product_id: product.id ?? null,
-    p_product: { slug: product.slug, title: product.title, description: product.description, category: product.category, status: product.status },
+    p_product: { slug: product.slug, title: product.title, description: product.description, category: product.category, status: product.status,
+      primary_image_path:product.primaryImagePath,primary_image_alt:product.primaryImageAlt,context_document:product.contextDocument,
+      context_image_path:product.contextImagePath,context_image_alt:product.contextImageAlt },
     p_variants: variants,
   });
   if (error) return { ok: false, message: error.message.includes("duplicate") ? "That slug or SKU is already in use." : error.message };

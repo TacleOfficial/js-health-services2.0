@@ -17,6 +17,7 @@ import { useDemo } from "@/components/demo-store";
 import { ProductVisual } from "@/components/product-visual";
 import { calculateCartPricing } from "@/lib/product-finder/cart-pricing";
 import { productBundles } from "@/lib/product-finder/bundles";
+import { ProductContextRenderer } from "./product-context-renderer";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 function Header() {
@@ -172,8 +173,8 @@ function ShopPage() {
     </section></main>;
 }
 
-function ProductPage({ slug }: { slug: string }) {
-  const product = products.find(p=>p.slug===slug);
+function ProductPage({ slug, databaseProduct }: { slug: string;databaseProduct?:Product }) {
+  const product = databaseProduct??products.find(p=>p.slug===slug);
   const [variantId,setVariantId]=useState(product?.variants[0].id || "");
   const [quantity,setQuantity]=useState(1);
   const { addToCart }=useDemo();
@@ -183,16 +184,16 @@ function ProductPage({ slug }: { slug: string }) {
   return <main>
     <div className="container breadcrumbs"><Link href="/shop"><ArrowLeft/> Back to shop</Link><span>Products / {product.name}</span></div>
     <section className="container product-detail">
-      <div className="gallery"><ProductVisual product={product} hero/><div className="gallery-thumbs"><button className="active"><span>01</span>Product system</button><button><span>02</span>Label detail</button><button><span>03</span>Packaging</button></div></div>
+      <div className="gallery">{product.primaryImageUrl?<div className="pdp-primary-image"><Image src={product.primaryImageUrl} alt={product.primaryImageAlt??product.name} fill priority sizes="(max-width: 900px) 100vw, 55vw"/></div>:<ProductVisual product={product} hero/>}<div className="gallery-thumbs"><button className="active"><span>01</span>Product system</button><button><span>02</span>Label detail</button><button><span>03</span>Packaging</button></div></div>
       <div className="purchase-panel"><Badge tone={product.documentStatus==="Batch verified"?"verified":"neutral"}>{product.documentStatus}</Badge><h1>{product.name}</h1><p className="lead">{product.descriptor}</p><div className="price">{money(variant.price)} <span>Demo price</span></div>
         <fieldset><legend>Material amount</legend><div className="variant-grid">{product.variants.map(v=><button key={v.id} className={variantId===v.id?"active":""} onClick={()=>setVariantId(v.id)}><strong>{v.amount}</strong><span>{money(v.price)}</span></button>)}</div></fieldset>
-        <div className="purchase-row"><div className="quantity"><button onClick={()=>setQuantity(Math.max(1,quantity-1))} aria-label="Decrease quantity"><Minus/></button><span>{quantity}</span><button onClick={()=>setQuantity(quantity+1)} aria-label="Increase quantity"><Plus/></button></div><Button size="lg" disabled={product.status==="Temporarily unavailable"} onClick={()=>addToCart(product.id,variant.id,quantity)}>{product.status==="Temporarily unavailable"?"Unavailable":"Add to demo cart"}</Button></div>
+        <div className="purchase-row"><div className="quantity"><button onClick={()=>setQuantity(Math.max(1,quantity-1))} aria-label="Decrease quantity"><Minus/></button><span>{quantity}</span><button onClick={()=>setQuantity(quantity+1)} aria-label="Increase quantity"><Plus/></button></div>{product.databaseBacked?<Button asChild size="lg"><Link href="/checkout">Continue to secure checkout</Link></Button>:<Button size="lg" disabled={product.status==="Temporarily unavailable"} onClick={()=>addToCart(product.id,variant.id,quantity)}>{product.status==="Temporarily unavailable"?"Unavailable":"Add to demo cart"}</Button>}</div>
         <div className="ruo-box"><FlaskConical/><div><strong>Research use only</strong><p>Fictional demonstration material. Not for human or veterinary use. No real order will be placed.</p></div></div>
         <div className="purchase-details"><span><PackageCheck/> {product.status}</span><span><FileCheck2/> {product.batchId}</span><span><Clock3/> Demo dispatch: 1–2 days</span></div>
       </div>
     </section>
     <section className="spec-strip"><div className="container"><Spec label="FORM" value={product.form}/><Spec label="ACTIVE BATCH" value={product.batchId}/><Spec label="DOCUMENT" value={product.documentStatus}/><Spec label="STORAGE" value="Per fictional label"/></div></section>
-    <section className="section container split product-story"><div><span className="eyebrow">PRODUCT CONTEXT</span><h2>Built for documented bench research</h2><p>{product.name} is a fictional reference material created solely to demonstrate a traceable commerce interface. Its naming, specifications, and availability do not correspond to a real compound.</p><p>The design keeps the material, selected amount, batch status, handling note, and evidence limitations close together.</p></div>{batch?<MockReport batch={batch}/>:<Card className="pending-card"><Clock3/><h3>Testing record pending</h3><p>This fictional batch is not released for the demo catalog.</p></Card>}</section>
+    <section className="section container split product-story"><div><span className="eyebrow">PRODUCT CONTEXT</span>{product.contextDocument?<ProductContextRenderer document={product.contextDocument}/>:<><h2>Built for documented bench research</h2><p>{product.name} is a fictional reference material created solely to demonstrate a traceable commerce interface. Its naming, specifications, and availability do not correspond to a real compound.</p><p>The design keeps the material, selected amount, batch status, handling note, and evidence limitations close together.</p></>}</div>{product.contextImageUrl?<Image className="pdp-context-image" src={product.contextImageUrl} alt={product.contextImageAlt??""} width={1200} height={900} sizes="(max-width: 900px) 100vw, 50vw"/>:batch?<MockReport batch={batch}/>:<Card className="pending-card"><Clock3/><h3>Testing record pending</h3><p>This fictional batch is not released for the demo catalog.</p></Card>}</section>
     <section className="section muted-section"><div className="container"><div className="section-head"><div><span className="eyebrow">RELATED MATERIALS</span><h2>Explore the catalog</h2></div></div><div className="product-grid">{products.filter(p=>p.id!==product.id).slice(0,3).map(p=><ProductCard key={p.id} product={p}/>)}</div></div></section>
   </main>;
 }
@@ -265,11 +266,11 @@ function Spec({label,value}:{label:string;value:string}){return <div className="
 function EmptyState({title,text,action,href,actionLabel="Clear filters"}:{title:string;text:string;action?:()=>void;href?:string;actionLabel?:string}){return <Card className="empty-state"><HelpCircle/><h3>{title}</h3><p>{text}</p>{href?<Button asChild variant="outline"><Link href={href}>{actionLabel}</Link></Button>:action&&<Button variant="outline" onClick={action}>{actionLabel}</Button>}</Card>}
 function NotFound(){return <main><div className="container not-found"><span className="eyebrow">404 / NOT FOUND</span><h1>This record is not in the demonstration</h1><p>The route or identifier does not match the fictional prototype data.</p><Button asChild><Link href="/shop">Return to catalog</Link></Button></div></main>}
 
-function Router({path}:{path:string}) {
+function Router({path,databaseProduct}:{path:string;databaseProduct?:Product}) {
   const clean=path.replace(/^\/|\/$/g,""); const parts=clean.split("/");
-  if(!clean)return <HomePage/>; if(clean==="shop")return <ShopPage/>; if(parts[0]==="products")return <ProductPage slug={parts[1]||""}/>; if(clean==="batch")return <BatchPage/>; if(clean==="quality")return <QualityPage/>; if(parts[0]==="research")return <ResearchPage slug={parts[1]}/>; if(clean==="support")return <SupportPage/>; if(clean==="account")return <AccountPage/>; if(clean==="cart")return <CartPage/>; if(clean==="checkout")return <CheckoutPage/>; if(clean==="compare")return <ComparePage/>; return <NotFound/>;
+  if(!clean)return <HomePage/>; if(clean==="shop")return <ShopPage/>; if(parts[0]==="products")return <ProductPage slug={parts[1]||""} databaseProduct={databaseProduct}/>; if(clean==="batch")return <BatchPage/>; if(clean==="quality")return <QualityPage/>; if(parts[0]==="research")return <ResearchPage slug={parts[1]}/>; if(clean==="support")return <SupportPage/>; if(clean==="account")return <AccountPage/>; if(clean==="cart")return <CartPage/>; if(clean==="checkout")return <CheckoutPage/>; if(clean==="compare")return <ComparePage/>; return <NotFound/>;
 }
 
-export function Storefront({path}:{path:string}) {
-  return <Tooltip.Provider delayDuration={250}><Header/><Router path={path}/><Footer/><VerificationGate/></Tooltip.Provider>;
+export function Storefront({path,databaseProduct}:{path:string;databaseProduct?:Product}) {
+  return <Tooltip.Provider delayDuration={250}><Header/><Router path={path} databaseProduct={databaseProduct}/><Footer/><VerificationGate/></Tooltip.Provider>;
 }

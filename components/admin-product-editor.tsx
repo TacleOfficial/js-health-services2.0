@@ -6,6 +6,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button, Card, Input, Select } from "@/components/ui";
 import { saveAdminProduct } from "@/app/admin/actions";
 import type { AdminProductActionState, AdminProductInput } from "@/lib/admin-products";
+import { emptyProductContext } from "@/lib/product-context";
+import { ProductMediaUploader } from "./product-media-uploader";
+import { ProductContextEditor } from "./product-context-editor";
 
 const initialActionState: AdminProductActionState = { ok: false };
 const blankVariant = () => ({
@@ -13,8 +16,11 @@ const blankVariant = () => ({
 });
 
 export function AdminProductEditor({ initial, canManage }: { initial?: AdminProductInput; canManage: boolean }) {
+  const [mediaKey] = useState(()=>crypto.randomUUID());
   const [product, setProduct] = useState<AdminProductInput>(initial ?? {
     title: "", slug: "", description: "", category: "", status: "draft", variants: [blankVariant()],
+    primaryImagePath:"",primaryImageUrl:"",primaryImageAlt:"",contextDocument:emptyProductContext,
+    contextImagePath:"",contextImageUrl:"",contextImageAlt:"",
   });
   const [slugEdited, setSlugEdited] = useState(Boolean(initial));
   const [state, action, pending] = useActionState(saveAdminProduct, initialActionState);
@@ -25,8 +31,9 @@ export function AdminProductEditor({ initial, canManage }: { initial?: AdminProd
     <input type="hidden" name="payload" value={JSON.stringify(product)} />
     {!canManage ? <Card className="admin-aal-warning"><div><strong>Manager access required</strong><p>A manager or super-admin role is required to change catalog data.</p></div></Card> : null}
     {state.message ? <p className="admin-product-error" role="alert">{state.message}</p> : null}
-    <Card className="admin-product-section">
-      <div className="admin-product-section-head"><div><span className="eyebrow">PRODUCT DETAILS</span><h2>Catalog information</h2></div></div>
+    <Card className="admin-product-section admin-product-pdp">
+      <div className="admin-product-gallery"><ProductMediaUploader label="Primary product image" mediaKey={mediaKey} url={product.primaryImageUrl} alt={product.primaryImageAlt} required={product.status==="active"} onUploaded={media=>setProduct(current=>({...current,primaryImagePath:media.path,primaryImageUrl:media.url}))} onRemove={()=>setProduct(current=>({...current,primaryImagePath:"",primaryImageUrl:""}))} onAltChange={primaryImageAlt=>setProduct(current=>({...current,primaryImageAlt}))}/></div>
+      <div className="admin-product-purchase-panel"><div className="admin-product-section-head"><div><span className="eyebrow">PRODUCT DETAILS</span><h2>{product.title||"New product"}</h2><p>Previewed in the same hierarchy as the product page.</p></div></div>
       <div className="admin-product-fields">
         <label>Product title<Input required value={product.title} onChange={event => {
           const title = event.target.value;
@@ -37,11 +44,16 @@ export function AdminProductEditor({ initial, canManage }: { initial?: AdminProd
         <label>Status<Select value={product.status} onChange={event => setProduct(current => ({ ...current, status: event.target.value as AdminProductInput["status"] }))}><option value="draft">Draft</option><option value="active">Active</option><option value="archived">Archived</option></Select></label>
         <label className="admin-product-wide">Description<textarea required rows={5} value={product.description} onChange={event => setProduct(current => ({ ...current, description: event.target.value }))} /></label>
       </div>
+      </div>
+    </Card>
+    <Card className="admin-product-section admin-context-layout">
+      <div><span className="eyebrow">PRODUCT CONTEXT</span><h2>Editorial context</h2><p>Structured content shown below the product specifications.</p><ProductContextEditor value={product.contextDocument} mediaKey={mediaKey} onChange={contextDocument=>setProduct(current=>({...current,contextDocument}))}/></div>
+      <ProductMediaUploader label="Product Context image" mediaKey={mediaKey} url={product.contextImageUrl} alt={product.contextImageAlt} required={product.status==="active"} onUploaded={media=>setProduct(current=>({...current,contextImagePath:media.path,contextImageUrl:media.url}))} onRemove={()=>setProduct(current=>({...current,contextImagePath:"",contextImageUrl:""}))} onAltChange={contextImageAlt=>setProduct(current=>({...current,contextImageAlt}))}/>
     </Card>
     <Card className="admin-product-section">
       <div className="admin-product-section-head"><div><span className="eyebrow">VARIANTS & INVENTORY</span><h2>Sellable variants</h2><p>Each variant has independent pricing, status, and stock.</p></div><Button type="button" variant="outline" onClick={() => setProduct(current => ({ ...current, variants: [...current.variants, blankVariant()] }))}><Plus /> Add variant</Button></div>
-      <div className="admin-variant-list">{product.variants.map((variant, index) => <section className="admin-variant-card" key={variant.id ?? `new-${index}`}>
-        <div className="admin-variant-heading"><strong>Variant {index + 1}</strong><Button type="button" size="sm" variant="ghost" disabled={product.variants.length === 1} onClick={() => setProduct(current => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index) }))}><Trash2 /> Remove</Button></div>
+      <div className="admin-variant-list">{product.variants.map((variant, index) => <details className="admin-variant-card" key={variant.id ?? `new-${index}`}>
+        <summary className="admin-variant-heading"><strong>{variant.title||`Variant ${index+1}`} · {variant.sku||"No SKU"}</strong></summary><div className="admin-variant-heading"><span>Variant {index + 1}</span><Button type="button" size="sm" variant="ghost" disabled={product.variants.length === 1} onClick={() => setProduct(current => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index) }))}><Trash2 /> Remove</Button></div>
         <div className="admin-variant-fields">
           <label>Variant title<Input required value={variant.title} onChange={event => updateVariant(index, { title: event.target.value })} /></label>
           <label>SKU<Input required value={variant.sku} onChange={event => updateVariant(index, { sku: event.target.value.toUpperCase() })} /></label>
@@ -51,7 +63,7 @@ export function AdminProductEditor({ initial, canManage }: { initial?: AdminProd
           <label>On hand<Input required type="number" min={variant.committed} step="1" value={variant.onHand} onChange={event => updateVariant(index, { onHand: Number(event.target.value) })} /></label>
           <label>Committed<Input readOnly value={variant.committed} aria-describedby={`committed-${index}`} /><small id={`committed-${index}`}>Managed by active reservations.</small></label>
         </div>
-      </section>)}</div>
+      </details>)}</div>
     </Card>
     <div className="admin-product-submit"><Button asChild variant="outline"><Link href="/admin?view=inventory">Cancel</Link></Button><Button disabled={!canManage || pending}>{pending ? "Saving…" : initial ? "Save product" : "Create product"}</Button></div>
   </form>;

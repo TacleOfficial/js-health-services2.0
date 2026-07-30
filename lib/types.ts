@@ -23,6 +23,12 @@ export interface Product {
   tone: string;
   featured?: boolean;
   variants: ProductVariant[];
+  primaryImageUrl?: string;
+  primaryImageAlt?: string;
+  contextDocument?: import("./product-context").ProductContextDocument;
+  contextImageUrl?: string;
+  contextImageAlt?: string;
+  databaseBacked?: boolean;
 }
 
 export interface BatchRecord {

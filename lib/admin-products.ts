@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { emptyProductContext, productContextSchema } from "./product-context";
 
 const status = z.enum(["draft", "active", "archived"]);
 export const adminProductSchema = z.object({
@@ -8,6 +9,13 @@ export const adminProductSchema = z.object({
   description: z.string().trim().min(3).max(2000),
   category: z.string().trim().min(2).max(80),
   status,
+  primaryImagePath: z.string().max(500).default(""),
+  primaryImageUrl: z.string().max(1000).default(""),
+  primaryImageAlt: z.string().trim().max(240).default(""),
+  contextDocument: productContextSchema.default(emptyProductContext),
+  contextImagePath: z.string().max(500).default(""),
+  contextImageUrl: z.string().max(1000).default(""),
+  contextImageAlt: z.string().trim().max(240).default(""),
   variants: z.array(z.object({
     id: z.string().uuid().optional(),
     sku: z.string().trim().min(2).max(80),
@@ -19,6 +27,11 @@ export const adminProductSchema = z.object({
     committed: z.coerce.number().int().min(0).default(0),
   })).min(1).max(50),
 }).superRefine((value, context) => {
+  if (value.status === "active") {
+    if (!value.primaryImagePath || !value.primaryImageAlt) context.addIssue({ code:"custom",path:["primaryImagePath"],message:"Active products require a primary image and alt text." });
+    if (!value.contextImagePath || !value.contextImageAlt) context.addIssue({ code:"custom",path:["contextImagePath"],message:"Active products require a context image and alt text." });
+    if (!value.contextDocument.content?.length) context.addIssue({ code:"custom",path:["contextDocument"],message:"Active products require Product Context." });
+  }
   const skus = new Set<string>();
   value.variants.forEach((variant, index) => {
     const normalized = variant.sku.toLowerCase();
