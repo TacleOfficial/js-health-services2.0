@@ -14,13 +14,12 @@ test("commerce mode switch is versioned, super-admin only, confirmed, and revers
   assert.match(sql, /prevent_commerce_mode_change/);
 });
 
-test("production checkout isolates staging items and limits tax fallback to technical failures", async () => {
+test("production checkout isolates staging items and uses audited effective manual tax rates", async () => {
   const action = await read("app/checkout/actions.ts");
-  const tax = await read("lib/providers/stripe-tax.ts");
   assert.match(action, /staging_item_in_production|Staging catalog items cannot enter a production order/);
-  assert.match(action, /error instanceof StripeTaxError/);
-  assert.match(action, /!error\.technical/);
-  assert.match(tax, /response\.status >= 500 \|\| response\.status === 429/);
+  assert.match(action, /manual_tax_rates/);
+  assert.match(action, /manual_rate/);
+  assert.doesNotMatch(action, /createStripeTaxQuote/);
   assert.match(action, /retrieveShippoRate/);
 });
 

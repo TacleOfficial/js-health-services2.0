@@ -27,18 +27,6 @@ async function providerCheck(url: string, headers: HeadersInit) {
   }
 }
 
-async function stripeTaxRegistrationReady() {
-  if (!commerceConfig.STRIPE_SECRET_KEY?.startsWith("sk_live_")) return false;
-  try {
-    const response = await fetch("https://api.stripe.com/v1/tax/registrations?status=active&limit=1", {
-      headers: { authorization: `Bearer ${commerceConfig.STRIPE_SECRET_KEY}` }, cache: "no-store", signal: AbortSignal.timeout(7000),
-    });
-    if (!response.ok) return false;
-    const body = await response.json() as { data?: unknown[] };
-    return Boolean(body.data?.length);
-  } catch { return false; }
-}
-
 export async function getCommerceRuntime(): Promise<CommerceRuntime> {
   const db = createSupabaseServiceClient();
   const { data, error } = await db.from("commerce_runtime_settings")
@@ -74,14 +62,11 @@ export async function getProductionReadiness() {
     const invalidDestination = (destinations.data ?? []).some((row: any) =>
       !row.is_active || /test|invalid|no-funds/i.test(`${row.destination_name} ${row.destination_value}`));
     checks.push({ key: "destinations", label: "Real Zelle and Cash App destinations", ready: !destinations.error && destinations.data?.length === 2 && !invalidDestination, reason: invalidDestination ? "A destination is disabled or still contains test data" : undefined });
-    checks.push({ key: "fallback_tax", label: "Approved effective fallback tax rate", ready: !taxRates.error && Boolean(taxRates.data?.length), reason: taxRates.data?.length ? undefined : "No current approved rate" });
+    checks.push({ key: "manual_tax", label: "Approved effective manual tax rate", ready: !taxRates.error && Boolean(taxRates.data?.length), reason: taxRates.data?.length ? undefined : "No current approved rate" });
   }
   const emailReady = Boolean(commerceConfig.BREVO_API_KEY && commerceConfig.BREVO_SENDER_EMAIL &&
     commerceConfig.PRODUCTION_INTERNAL_INBOX && commerceConfig.TRANSACTIONAL_EMAIL_ENABLED);
   checks.push({ key: "email", label: "Brevo sender and operational inbox", ready: emailReady, reason: emailReady ? undefined : "Email configuration or hard flag is missing" });
-
-  const stripeReady = await stripeTaxRegistrationReady();
-  checks.push({ key: "stripe_tax", label: "Stripe Tax active registration", ready: stripeReady, reason: stripeReady ? undefined : "Stripe Tax registration check failed" });
 
   const originReady = Boolean(commerceConfig.SHIPPO_ORIGIN_NAME && commerceConfig.SHIPPO_ORIGIN_STREET1 &&
     commerceConfig.SHIPPO_ORIGIN_CITY && /^[A-Z]{2}$/.test(commerceConfig.SHIPPO_ORIGIN_STATE ?? "") &&

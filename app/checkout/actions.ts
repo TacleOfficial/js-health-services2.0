@@ -9,7 +9,6 @@ import { formatUsd } from "@/lib/commerce/money";
 import { createOrderNumber } from "@/lib/commerce/order-number";
 import { sendOrderLifecycleEmail } from "@/lib/providers/brevo";
 import { createShippoRateQuote, retrieveShippoRate, validateShippoAddress, type ShippoAddress } from "@/lib/providers/shippo";
-import { createStripeTaxQuote, StripeTaxError } from "@/lib/providers/stripe-tax";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 const detailsSchema = z.object({
@@ -109,23 +108,17 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
     if (!Number.isSafeInteger(shippingCents) || shippingCents < 0) return { ok: false, message: "The shipping rate amount is invalid." };
     shippoRateId = input.shippoRateId; shippingSnapshot = { shipment_id:verifiedRate.shipment,rate_id:verifiedRate.object_id,amount:verifiedRate.amount,currency:verifiedRate.currency,provider:verifiedRate.provider,service_level:verifiedRate.servicelevel,estimated_days:verifiedRate.estimated_days };
   }
-  let taxCents = 0, taxSource: "staging_zero"|"stripe_tax"|"manual_fallback" = "staging_zero";
+  let taxCents = 0, taxSource: "staging_zero"|"manual_rate" = "staging_zero";
   let stripeTaxId: string|null = null, manualRateId: string|null = null;
   if (runtime.mode === "production") {
-    try {
-      const quote = await createStripeTaxQuote({ currency: "usd", customerAddress: { line1: input.line1, line2: input.line2, city: input.city, state: input.state, postalCode: input.postalCode, country: "US" },
-        lines: variants.map(variant => ({ reference: variant.id, amountCents: variant.price_cents, quantity: items.find(item => item.variantId === variant.id)!.quantity, taxCode: commerceConfig.STRIPE_DEFAULT_TAX_CODE })), shippingCents });
-      taxCents = quote.tax_amount_exclusive; stripeTaxId = quote.id; taxSource = "stripe_tax";
-    } catch (error) {
-      if (!(error instanceof StripeTaxError) || !error.technical) return { ok: false, message: "Stripe Tax rejected the calculation. Production checkout is blocked." };
-      const now = new Date().toISOString();
-      const { data: fallback } = await db.from("manual_tax_rates").select("*").eq("country_code","US").eq("region_code",input.state)
-        .eq("is_approved",true).lte("effective_from",now).or(`effective_to.is.null,effective_to.gt.${now}`).order("version",{ascending:false}).limit(1).maybeSingle();
-      if (!fallback) return { ok: false, message: "Tax service is unavailable and no approved current fallback exists." };
-      taxCents = Math.round((subtotal + shippingCents) * fallback.rate_basis_points / 10000);
-      taxSource = "manual_fallback"; manualRateId = fallback.id;
-      await db.from("provider_alerts").insert({ commerce_mode: "production", provider: "stripe_tax", code: "technical_fallback_used", details: { status: error.status, fallback_rate_id: fallback.id } });
-    }
+    const now = new Date().toISOString();
+    const { data: manualRate } = await db.from("manual_tax_rates").select("*").eq("country_code","US").eq("region_code",input.state)
+      .eq("is_approved",true).lte("effective_from",now).or(`effective_to.is.null,effective_to.gt.${now}`)
+      .order("postal_pattern",{ascending:false,nullsFirst:false}).order("version",{ascending:false});
+    const applicableRate = (manualRate ?? []).find(rate => !rate.postal_pattern || input.postalCode.startsWith(rate.postal_pattern));
+    if (!applicableRate) return { ok: false, message: "No approved current tax rate is configured for this destination." };
+    taxCents = Math.round((subtotal + shippingCents) * applicableRate.rate_basis_points / 10000);
+    taxSource = "manual_rate"; manualRateId = applicableRate.id;
   }
   const token = createGuestAccessToken();
   const paymentExpiration = new Date(Date.now() + 24*60*60*1000);
