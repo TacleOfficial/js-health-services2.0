@@ -27,6 +27,18 @@ async function providerCheck(url: string, headers: HeadersInit) {
   }
 }
 
+async function stripeTaxRegistrationReady() {
+  if (!commerceConfig.STRIPE_SECRET_KEY?.startsWith("sk_live_")) return false;
+  try {
+    const response = await fetch("https://api.stripe.com/v1/tax/registrations?status=active&limit=1", {
+      headers: { authorization: `Bearer ${commerceConfig.STRIPE_SECRET_KEY}` }, cache: "no-store", signal: AbortSignal.timeout(7000),
+    });
+    if (!response.ok) return false;
+    const body = await response.json() as { data?: unknown[] };
+    return Boolean(body.data?.length);
+  } catch { return false; }
+}
+
 export async function getCommerceRuntime(): Promise<CommerceRuntime> {
   const db = createSupabaseServiceClient();
   const { data, error } = await db.from("commerce_runtime_settings")
@@ -68,15 +80,12 @@ export async function getProductionReadiness() {
     commerceConfig.PRODUCTION_INTERNAL_INBOX && commerceConfig.TRANSACTIONAL_EMAIL_ENABLED);
   checks.push({ key: "email", label: "Brevo sender and operational inbox", ready: emailReady, reason: emailReady ? undefined : "Email configuration or hard flag is missing" });
 
-  const stripeConfigured = Boolean(commerceConfig.STRIPE_SECRET_KEY);
-  const stripeReady = stripeConfigured && await providerCheck("https://api.stripe.com/v1/tax/registrations?status=active&limit=1", {
-    authorization: `Bearer ${commerceConfig.STRIPE_SECRET_KEY}`,
-  });
+  const stripeReady = await stripeTaxRegistrationReady();
   checks.push({ key: "stripe_tax", label: "Stripe Tax active registration", ready: stripeReady, reason: stripeReady ? undefined : "Stripe Tax registration check failed" });
 
   const originReady = Boolean(commerceConfig.SHIPPO_ORIGIN_NAME && commerceConfig.SHIPPO_ORIGIN_STREET1 &&
     commerceConfig.SHIPPO_ORIGIN_CITY && commerceConfig.SHIPPO_ORIGIN_STATE && commerceConfig.SHIPPO_ORIGIN_POSTAL_CODE);
-  const shippoConnected = Boolean(commerceConfig.SHIPPO_API_TOKEN) && await providerCheck("https://api.goshippo.com/carrier_accounts?results=1", {
+  const shippoConnected = Boolean(commerceConfig.SHIPPO_API_TOKEN?.startsWith("shippo_live_")) && await providerCheck("https://api.goshippo.com/carrier_accounts?results=1", {
     authorization: `ShippoToken ${commerceConfig.SHIPPO_API_TOKEN}`,
   });
   const shippoReady = shippoConnected && originReady && Boolean(commerceConfig.SHIPPO_WEBHOOK_SECRET) &&
