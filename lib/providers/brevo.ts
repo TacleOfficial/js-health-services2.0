@@ -1,5 +1,33 @@
 import "server-only";
 
+export class BrevoSmsError extends Error {
+  constructor(public readonly status: number, message = `Brevo SMS request failed (${status})`) {
+    super(message);
+  }
+}
+
+export async function sendTransactionalSms(input: {
+  recipient: string;
+  content: string;
+  tag: string;
+}) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = process.env.BREVO_SMS_SENDER;
+  if (!apiKey || !sender) throw new Error("Brevo SMS is not configured");
+  const response = await fetch("https://api.brevo.com/v3/transactionalSMS/send", {
+    method: "POST",
+    headers: { "api-key": apiKey, accept: "application/json", "content-type": "application/json" },
+    body: JSON.stringify({
+      sender, recipient: input.recipient.replace(/^\+/, ""), content: input.content,
+      type: "transactional", tag: input.tag, organisationPrefix: "Velle",
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new BrevoSmsError(response.status);
+  const body = await response.json() as { messageId: number };
+  return { messageId: String(body.messageId) };
+}
+
 export async function sendTransactionalEmail(input: {
   to: { email: string; name?: string };
   templateId: number;

@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const requireCustomer = cache(async () => {
+export const requireCustomer = cache(async (returnTo = "/account") => {
   const supabase = await createSupabaseServerClient();
   if (!supabase) redirect("/auth/sign-in?error=Supabase%20is%20not%20configured");
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/sign-in?next=/account");
+  const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/account";
+  if (!user) redirect(`/auth/sign-in?next=${encodeURIComponent(safeReturnTo)}`);
   await supabase.from("profiles").upsert({ id: user.id, email: user.email, updated_at: new Date().toISOString() }, { onConflict: "id", ignoreDuplicates: true });
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
@@ -31,8 +32,8 @@ export type AccountSnapshot = Awaited<ReturnType<typeof getAccountSnapshot>>;
 
 const adminRoles = ["support", "payment_reviewer", "fulfillment", "manager", "super_admin"];
 
-export async function requireAdmin() {
-  const customer = await requireCustomer();
+export async function requireAdmin(returnTo = "/account") {
+  const customer = await requireCustomer(returnTo);
   const { data, error } = await customer.supabase.rpc("has_admin_role", { allowed: adminRoles });
   if (error || !data) redirect("/account");
   return customer;

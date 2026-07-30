@@ -8,6 +8,7 @@ import { sendOrderLifecycleEmail } from "@/lib/providers/brevo";
 import { headers } from "next/headers";
 import { requireCustomer } from "@/lib/account";
 import { createHash } from "node:crypto";
+import { processNotificationsBestEffort } from "@/lib/notifications";
 
 const reportSchema = z.object({
   orderNumber: z.string().min(8).max(40),
@@ -45,6 +46,7 @@ export async function submitGuestPaymentReport(formData: FormData) {
     p_idempotency_key: input.idempotencyKey,
   });
   if (error) redirect(`/orders/${input.orderNumber}?report=failed`);
+  await processNotificationsBestEffort();
   const evidence = formData.get("screenshot");
   if (order.commerce_mode === "production" && evidence instanceof File && evidence.size > 0) {
     const max = Number(process.env.PAYMENT_EVIDENCE_MAX_BYTES || 5_242_880);

@@ -9,7 +9,8 @@ import { approvePayment, rejectPayment } from "../../actions";
 
 export default async function Page({ params }: { params: Promise<{ submissionId: string }> }) {
   const { submissionId } = await params;
-  const { supabase } = await requireAdmin();
+  const route = `/admin/payments/${submissionId}`;
+  const { supabase } = await requireAdmin(route);
   const { data: submission } = await supabase.from("payment_submissions").select("*,orders!inner(*,order_items(*),inventory_reservations(*))").eq("id", submissionId).maybeSingle();
   if (!submission) notFound();
   const order = Array.isArray(submission.orders) ? submission.orders[0] : submission.orders;

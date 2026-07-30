@@ -49,6 +49,28 @@ The migration in `supabase/migrations/0001_commerce_foundation.sql` establishes:
 - atomic, AAL2-protected payment approval and inventory commitment;
 - durable notification outbox records.
 
+## Manager SMS alerts
+
+Payment-review SMS alerts use Brevo transactional SMS and remain independent
+from administrator push notifications. After applying the latest migrations,
+configure these server/Edge Function values:
+
+```text
+BREVO_API_KEY=
+BREVO_SMS_SENDER=Velle
+APP_BASE_URL=https://your-canonical-app.example
+ADMIN_SMS_ENABLED=false
+ADMIN_PUSH_WEBHOOK_SECRET=
+BREVO_WEBHOOK_SECRET=
+```
+
+Deploy `process-notifications`, invoke it on a recurring schedule for retries,
+and configure a secured Brevo transactional SMS webhook pointing to
+`/api/webhooks/brevo` with the `x-velle-webhook-secret` header. Keep
+`ADMIN_SMS_ENABLED=false` until a super-admin has verified and enabled the
+intended reviewer numbers from **Admin → Settings**. Both staging and production
+payment submissions are eligible once the flag is enabled.
+
 ## Administrator iPhone app
 
 The Expo Router project lives in `admin-mobile` and is linked to its staging EAS

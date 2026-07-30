@@ -10,7 +10,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from "@/lib/commerce/runtime";
 import { purchaseShippoLabel } from "@/lib/providers/shippo";
-import { sendOrderLifecycleEmail } from "@/lib/providers/brevo";
+import { sendOrderLifecycleEmail, sendTransactionalSms } from "@/lib/providers/brevo";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 
 const value = (data: FormData, key: string) => String(data.get(key) ?? "");
 
@@ -44,6 +45,66 @@ async function requireSuperAdmin() {
   const { data } = await supabase.rpc("has_admin_role", { allowed: ["super_admin"] });
   if (!data) throw new Error("Super-admin authorization is required.");
   return user;
+}
+
+const adminPhoneSchema = z.string().trim().regex(/^\+[1-9]\d{7,14}$/, "Use E.164 format, such as +13175550123.");
+
+export async function saveAdminSmsPhone(data: FormData) {
+  await requireSuperAdmin();
+  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+  const phone = adminPhoneSchema.parse(value(data, "phone_e164"));
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.rpc("admin_set_sms_phone", { p_admin_user_id: adminUserId, p_phone_e164: phone });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin");
+}
+
+export async function requestAdminSmsVerification(data: FormData) {
+  await requireSuperAdmin();
+  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+  const code = String(randomInt(100000, 1000000));
+  const salt = randomBytes(16).toString("hex");
+  const hash = createHash("sha256").update(code + salt).digest("hex");
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { data: rows, error } = await supabase.rpc("admin_create_sms_challenge", {
+    p_admin_user_id: adminUserId, p_code_salt: salt, p_code_hash: hash,
+  });
+  if (error) throw new Error(error.message);
+  const challenge = Array.isArray(rows) ? rows[0] : rows;
+  if (!challenge?.phone_e164) throw new Error("Save a valid reviewer phone number first.");
+  await sendTransactionalSms({
+    recipient: challenge.phone_e164,
+    content: `Your Velle manager SMS verification code is ${code}. It expires in 10 minutes.`,
+    tag: "admin-sms-verification",
+  });
+  revalidatePath("/admin");
+}
+
+export async function confirmAdminSmsVerification(data: FormData) {
+  await requireSuperAdmin();
+  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+  const code = z.string().regex(/^\d{6}$/).parse(value(data, "verification_code"));
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { data: verified, error } = await supabase.rpc("admin_confirm_sms_challenge", {
+    p_admin_user_id: adminUserId, p_code: code,
+  });
+  if (error) throw new Error(error.message);
+  if (!verified) throw new Error("The verification code is invalid, expired, or has too many failed attempts.");
+  revalidatePath("/admin");
+}
+
+export async function setAdminSmsEnabled(data: FormData) {
+  await requireSuperAdmin();
+  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+  const enabled = value(data, "enabled") === "true";
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase.rpc("admin_set_sms_enabled", { p_admin_user_id: adminUserId, p_enabled: enabled });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin");
 }
 
 export async function changeCommerceMode(data: FormData) {
@@ -147,7 +208,7 @@ export async function purchaseOrderLabel(data: FormData) {
     await db.from("audit_events").insert({ order_id:order.id,event_type:"shipment.label_purchased",actor_type:"admin",actor_id:user.id,commerce_mode:"production",new_value:{transaction_id:transaction.object_id,tracking_number:transaction.tracking_number} });
     try { await sendOrderLifecycleEmail({ buyerEmail:order.customer_email,orderNumber:order.order_number,event:"Shipment created",detail:`Your shipment has been created.${transaction.tracking_number?` Tracking: ${transaction.tracking_number}`:""}`,idempotencyKey:`shipment-created:${shipment.id}`,commerceMode:"production" }); } catch {}
   } catch (error) {
-    await db.from("shippo_label_attempts").update({ status:"failed",error_code:"provider_error",provider_response:(error as any).providerResponse??{},completed_at:new Date().toISOString() }).eq("id",attempt.id);
+    await db.from("shippo_label_attempts").update({ status:"failed",error_code:"provider_error",provider_response:(error as {providerResponse?:unknown}).providerResponse??{},completed_at:new Date().toISOString() }).eq("id",attempt.id);
     throw error;
   }
   revalidatePath("/admin");

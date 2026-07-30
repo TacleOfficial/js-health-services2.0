@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, CreditCard, Database, Package, Plus, Search } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, CreditCard, Database, MessageSquareText, Package, Plus, Search } from "lucide-react";
 import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { formatUsd } from "@/lib/commerce/money";
-import { stripeReady } from "@/lib/stripe";
-import { setPaymentMethodEnabled, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel, changeShippingSettings, recordManualShipment, markManualShipmentDelivered } from "./actions";
+import { setPaymentMethodEnabled, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel, changeShippingSettings, recordManualShipment, markManualShipmentDelivered, saveAdminSmsPhone, requestAdminSmsVerification, confirmAdminSmsVerification, setAdminSmsEnabled } from "./actions";
 import { requireAdmin } from "@/lib/account";
 import { AdminInventoryActions } from "@/components/admin-inventory-actions";
 import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from "@/lib/commerce/runtime";
 import { AdminTaxRateForm } from "@/components/admin-tax-rate-form";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const metadata: Metadata = { title: "Admin operations · Private staging", robots: { index: false, follow: false } };
 type View = "queue" | "orders" | "inventory" | "settings";
@@ -53,6 +53,30 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   }).length;
   const canManageInventory = Boolean(inventoryManagerResult.data);
   const isSuperAdmin = Boolean(superAdminResult.data);
+  let smsReviewers: Array<{ userId:string; name:string; email:string; roles:string[]; phone:string|null; verifiedAt:string|null; enabled:boolean }> = [];
+  let smsFailureCount = 0;
+  if (isSuperAdmin) {
+    const service = createSupabaseServiceClient();
+    const [{ data: roleRows }, { data: preferenceRows }, { count: failureCount }] = await Promise.all([
+      service.from("admin_role_assignments").select("user_id,role").eq("is_active",true).in("role",["payment_reviewer","manager","super_admin"]),
+      service.from("admin_sms_preferences").select("admin_user_id,phone_e164,verified_at,is_enabled"),
+      service.from("notification_deliveries").select("id",{count:"exact",head:true}).eq("channel","sms").in("status",["failed","soft_bounce","hard_bounce","rejected"]),
+    ]);
+    const userIds = [...new Set((roleRows ?? []).map(row => row.user_id))];
+    const { data: profileRows } = userIds.length
+      ? await service.from("profiles").select("id,email,first_name,last_name").in("id",userIds)
+      : { data: [] };
+    smsReviewers = userIds.map(userId => {
+      const profile = profileRows?.find(row => row.id === userId);
+      const preference = preferenceRows?.find(row => row.admin_user_id === userId);
+      return {
+        userId, name: [profile?.first_name,profile?.last_name].filter(Boolean).join(" ") || "Administrator",
+        email: profile?.email ?? "", roles: (roleRows ?? []).filter(row => row.user_id===userId).map(row => row.role),
+        phone: preference?.phone_e164 ?? null, verifiedAt: preference?.verified_at ?? null, enabled: Boolean(preference?.is_enabled),
+      };
+    });
+    smsFailureCount = failureCount ?? 0;
+  }
   const inventoryRows = (inventoryResult.data ?? []).filter(row => {
     const variant = Array.isArray(row.product_variants) ? row.product_variants[0] : row.product_variants;
     const product = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
@@ -64,7 +88,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <div><span className="eyebrow">ADMIN OPERATIONS</span><h1>{view === "queue" ? "Verification queue" : view[0].toUpperCase() + view.slice(1)}</h1><p>Live staging records protected by Supabase roles and row-level security.</p></div>
     </div>
     <nav className="admin-tabs" aria-label="Admin sections">
-      {[["queue","Review queue"],["orders","Orders"],["inventory","Inventory"],["settings","Payment settings"]].map(([key,label]) => <Link className={view === key ? "active" : ""} href={`/admin?view=${key}`} key={key}>{label}</Link>)}
+      {[["queue","Review queue"],["orders","Orders"],["inventory","Inventory"],["settings","Settings"]].map(([key,label]) => <Link className={view === key ? "active" : ""} href={`/admin?view=${key}`} key={key}>{label}</Link>)}
     </nav>
 
     {view === "queue" && <>
@@ -110,6 +134,24 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     })}</div>{!inventoryRows.length && <div className="admin-empty"><Database/><h3>No {inventoryStatus === "all" ? "" : `${inventoryStatus} `}inventory records</h3><p>Add a product or choose another status filter.</p></div>}</Card>}
 
     {view === "settings" && <div className="commerce-settings-grid">
+      {isSuperAdmin && <Card className="admin-sms-panel">
+        <div className="admin-data-head"><MessageSquareText/><div><h2>Manager SMS alerts</h2><p>Brevo alerts are independent from push notifications. {process.env.ADMIN_SMS_ENABLED==="true" ? "Live delivery is enabled." : "Live delivery is disabled by ADMIN_SMS_ENABLED."}</p></div><Badge tone={process.env.BREVO_API_KEY&&process.env.BREVO_SMS_SENDER&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.BREVO_API_KEY&&process.env.BREVO_SMS_SENDER&&process.env.APP_BASE_URL?"Configured":"Configuration required"}</Badge></div>
+        {smsFailureCount > 0 && <p className="admin-sms-warning">{smsFailureCount} SMS delivery {smsFailureCount===1?"failure requires":"failures require"} review.</p>}
+        <div className="admin-sms-list">{smsReviewers.map(reviewer => <section key={reviewer.userId} className="admin-sms-reviewer">
+          <div className="admin-sms-identity"><strong>{reviewer.name}</strong><span>{reviewer.email || reviewer.userId}</span><small>{reviewer.roles.join(", ").replaceAll("_"," ")}</small></div>
+          <form action={saveAdminSmsPhone} className="admin-sms-phone-form">
+            <input type="hidden" name="admin_user_id" value={reviewer.userId}/><Input name="phone_e164" aria-label={`Phone for ${reviewer.name}`} defaultValue={reviewer.phone ?? ""} placeholder="+13175550123" required/><Button variant="outline">Save number</Button>
+          </form>
+          <div className="admin-sms-verification">
+            {reviewer.verifiedAt ? <Badge tone="verified">Verified ••••{reviewer.phone?.slice(-4)}</Badge> : <>
+              <form action={requestAdminSmsVerification}><input type="hidden" name="admin_user_id" value={reviewer.userId}/><Button variant="outline" disabled={!reviewer.phone}>Send code</Button></form>
+              <form action={confirmAdminSmsVerification}><input type="hidden" name="admin_user_id" value={reviewer.userId}/><Input name="verification_code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6-digit code" required/><Button variant="outline">Verify</Button></form>
+            </>}
+          </div>
+          <form action={setAdminSmsEnabled}><input type="hidden" name="admin_user_id" value={reviewer.userId}/><input type="hidden" name="enabled" value={String(!reviewer.enabled)}/><Button disabled={!reviewer.verifiedAt} variant={reviewer.enabled?"outline":"primary"}>{reviewer.enabled?"Disable alerts":"Enable alerts"}</Button></form>
+        </section>)}</div>
+        {!smsReviewers.length && <div className="admin-empty"><MessageSquareText/><h3>No eligible reviewers</h3><p>Assign an active payment reviewer, manager, or super-admin role first.</p></div>}
+      </Card>}
       <Card className="mode-panel">
         <div className="mode-panel-head"><div><span className="eyebrow">COMMERCE MODE</span><h2>{runtime.mode === "production" ? "Production" : "Staging"}</h2><p>Version {runtime.version} · Last changed {new Date(runtime.updatedAt).toLocaleString()}</p></div><Badge tone={runtime.mode === "production" ? "verified" : "warm"}>{runtime.mode}</Badge></div>
         <div className="readiness-list">{readiness.checks.map(check => <div key={check.key}><span className={check.ready ? "ready-dot" : "blocked-dot"}/><span><strong>{check.label}</strong>{check.reason && <small>{check.reason}</small>}</span></div>)}</div>
