@@ -5,7 +5,7 @@ import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { formatUsd } from "@/lib/commerce/money";
 import { stripeReady } from "@/lib/stripe";
-import { setPaymentMethodEnabled, createTestPaymentSubmission, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel, changeShippingSettings, recordManualShipment, markManualShipmentDelivered } from "./actions";
+import { setPaymentMethodEnabled, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel, changeShippingSettings, recordManualShipment, markManualShipmentDelivered } from "./actions";
 import { requireAdmin } from "@/lib/account";
 import { AdminInventoryActions } from "@/components/admin-inventory-actions";
 import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from "@/lib/commerce/runtime";
@@ -73,7 +73,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <Card><AlertTriangle/><span>Exceptions</span><strong>{exceptions}</strong><small>Mismatch or duplicate risk</small></Card>
         <Card><CheckCircle2/><span>Verified today</span><strong>{verifiedToday}</strong><small>Authoritative records</small></Card>
       </section>
-      <Card className="admin-test-card"><div><Database/><span><strong>Test the payment workflow</strong><small>Creates one isolated $125 staging order, reservation, and payment submission.</small></span></div><form action={createTestPaymentSubmission}><Button variant="outline">Generate test submission</Button></form></Card>
       <Card className="queue-card">
         <div className="queue-tools">
           <form className="search-box" action="/admin"><input type="hidden" name="view" value="queue" /><input type="hidden" name="filter" value={filter} /><Search/><Input name="q" defaultValue={queryText} aria-label="Search payment queue" placeholder="Search order, sender, or reference" /></form>
