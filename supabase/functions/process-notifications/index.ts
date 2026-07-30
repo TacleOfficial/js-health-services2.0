@@ -23,7 +23,7 @@ Deno.serve(async (request) => {
   }
 
   const apiKey = Deno.env.get("BREVO_API_KEY");
-  const sender = Deno.env.get("BREVO_SMS_SENDER") ?? Deno.env.get("BREVO_SENDER_NAME") ?? "Velle";
+  const sender = (Deno.env.get("BREVO_SMS_SENDER") ?? "").replace(/[^A-Za-z0-9]/g, "").slice(0, 11) || "Velle";
   const baseUrl = Deno.env.get("APP_BASE_URL")?.replace(/\/$/, "");
   if (!apiKey || !baseUrl) {
     return Response.json({ error: "Brevo SMS configuration is incomplete" }, { status: 503 });

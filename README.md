@@ -57,7 +57,7 @@ configure these server/Edge Function values:
 
 ```text
 BREVO_API_KEY=
-BREVO_SMS_SENDER=Velle # optional; falls back to BREVO_SENDER_NAME, then "Velle"
+BREVO_SMS_SENDER=Velle # optional; alphanumeric, 11 characters maximum
 APP_BASE_URL=https://your-canonical-app.example
 ADMIN_SMS_ENABLED=false
 ADMIN_PUSH_WEBHOOK_SECRET=

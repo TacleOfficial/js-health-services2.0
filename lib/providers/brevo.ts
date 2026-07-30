@@ -6,13 +6,18 @@ export class BrevoSmsError extends Error {
   }
 }
 
+const smsSender = () => {
+  const configured = process.env.BREVO_SMS_SENDER?.replace(/[^A-Za-z0-9]/g, "").slice(0, 11);
+  return configured || "Velle";
+};
+
 export async function sendTransactionalSms(input: {
   recipient: string;
   content: string;
   tag: string;
 }) {
   const apiKey = process.env.BREVO_API_KEY;
-  const sender = process.env.BREVO_SMS_SENDER ?? process.env.BREVO_SENDER_NAME ?? "Velle";
+  const sender = smsSender();
   if (!apiKey) throw new Error("Brevo API key is not configured");
   const response = await fetch("https://api.brevo.com/v3/transactionalSMS/send", {
     method: "POST",
@@ -23,7 +28,17 @@ export async function sendTransactionalSms(input: {
     }),
     cache: "no-store",
   });
-  if (!response.ok) throw new BrevoSmsError(response.status);
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { code?: unknown; message?: unknown } | null;
+    const providerMessage = typeof body?.message === "string" ? body.message.slice(0, 240) : null;
+    const providerCode = typeof body?.code === "string" ? body.code.slice(0, 80) : null;
+    throw new BrevoSmsError(
+      response.status,
+      providerMessage
+        ? `Brevo SMS: ${providerMessage}${providerCode ? ` (${providerCode})` : ""}`
+        : `Brevo SMS request failed (${response.status})`,
+    );
+  }
   const body = await response.json() as { messageId: number };
   return { messageId: String(body.messageId) };
 }
