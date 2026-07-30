@@ -4,7 +4,7 @@ import test from "node:test";
 
 const root = new URL("../", import.meta.url);
 
-test("product mutations are transactional and require manager AAL2", async () => {
+test("product mutations are transactional and require a manager role", async () => {
   const migration = await readFile(new URL("supabase/migrations/0006_admin_product_management.sql", root), "utf8");
   assert.match(migration, /admin_save_product/);
   assert.match(migration, /admin_set_product_archived/);
@@ -46,11 +46,8 @@ test("product validation enforces variant and inventory invariants", async () =>
   assert.match(schema, /price: z\.coerce\.number\(\)\.min\(0\)/);
 });
 
-test("AAL2 enforcement has a fail-closed database switch", async () => {
-  const migration = await readFile(new URL("supabase/migrations/0007_configurable_admin_aal2.sql", root), "utf8");
-  assert.match(migration, /require_aal2 boolean not null default false/);
-  assert.match(migration, /admin_aal2_is_required\(\)/);
+test("admin authorization no longer requires an assurance level", async () => {
+  const migration = await readFile(new URL("supabase/migrations/0007_remove_admin_aal2.sql", root), "utf8");
   assert.match(migration, /not public\.has_admin_role\(allowed\)/);
-  assert.match(migration, /coalesce\([\s\S]*true[\s\S]*\)/);
-  assert.match(migration, /revoke all on table public\.admin_security_settings/);
+  assert.doesNotMatch(migration, /auth\.jwt\(\)->>'aal'/);
 });

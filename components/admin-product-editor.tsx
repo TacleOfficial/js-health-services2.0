@@ -23,7 +23,7 @@ export function AdminProductEditor({ initial, canManage }: { initial?: AdminProd
   };
   return <form action={action} className="admin-product-form">
     <input type="hidden" name="payload" value={JSON.stringify(product)} />
-    {!canManage ? <Card className="admin-aal-warning"><div><strong>Manager AAL2 required</strong><p>Set up AAL2 with a manager or super-admin account before changing catalog data.</p></div><Button asChild variant="outline"><Link href="/admin/security">Open security</Link></Button></Card> : null}
+    {!canManage ? <Card className="admin-aal-warning"><div><strong>Manager access required</strong><p>A manager or super-admin role is required to change catalog data.</p></div></Card> : null}
     {state.message ? <p className="admin-product-error" role="alert">{state.message}</p> : null}
     <Card className="admin-product-section">
       <div className="admin-product-section-head"><div><span className="eyebrow">PRODUCT DETAILS</span><h2>Catalog information</h2></div></div>
