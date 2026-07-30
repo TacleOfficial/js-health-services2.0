@@ -84,7 +84,8 @@ export async function getProductionReadiness() {
   checks.push({ key: "stripe_tax", label: "Stripe Tax active registration", ready: stripeReady, reason: stripeReady ? undefined : "Stripe Tax registration check failed" });
 
   const originReady = Boolean(commerceConfig.SHIPPO_ORIGIN_NAME && commerceConfig.SHIPPO_ORIGIN_STREET1 &&
-    commerceConfig.SHIPPO_ORIGIN_CITY && commerceConfig.SHIPPO_ORIGIN_STATE && commerceConfig.SHIPPO_ORIGIN_POSTAL_CODE);
+    commerceConfig.SHIPPO_ORIGIN_CITY && /^[A-Z]{2}$/.test(commerceConfig.SHIPPO_ORIGIN_STATE ?? "") &&
+    /^\d{5}(?:-\d{4})?$/.test(commerceConfig.SHIPPO_ORIGIN_POSTAL_CODE ?? ""));
   const shippoConnected = Boolean(commerceConfig.SHIPPO_API_TOKEN?.startsWith("shippo_live_")) && await providerCheck("https://api.goshippo.com/carrier_accounts?results=1", {
     authorization: `ShippoToken ${commerceConfig.SHIPPO_API_TOKEN}`,
   });

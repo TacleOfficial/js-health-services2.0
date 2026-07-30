@@ -18,7 +18,7 @@ const envSchema = z.object({
   SHIPPO_ORIGIN_NAME: z.string().min(1).optional(),
   SHIPPO_ORIGIN_STREET1: z.string().min(1).optional(),
   SHIPPO_ORIGIN_CITY: z.string().min(1).optional(),
-  SHIPPO_ORIGIN_STATE: z.string().length(2).optional(),
+  SHIPPO_ORIGIN_STATE: z.string().optional(),
   SHIPPO_ORIGIN_POSTAL_CODE: z.string().min(5).optional(),
   STRIPE_DEFAULT_TAX_CODE: z.string().regex(/^txcd_\d+$/).optional(),
   COMMERCE_ENABLED: optionalBoolean,
