@@ -160,7 +160,7 @@ function ShopPage({databaseProducts=[]}:{databaseProducts?:Product[]}) {
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("featured");
   const { compare } = useDemo();
-  const catalog=useMemo(()=>[...databaseProducts,...products.filter(product=>!databaseProducts.some(database=>database.slug===product.slug))],[databaseProducts]);
+  const catalog=databaseProducts;
   const shopCategories=useMemo(()=>["All",...Array.from(new Set(catalog.map(product=>product.category)))],[catalog]);
   const list = useMemo(() => {
     const filtered = catalog.filter(p => (category === "All" || p.category === category) && `${p.name} ${p.descriptor} ${p.researchArea}`.toLowerCase().includes(query.toLowerCase()));
