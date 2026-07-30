@@ -97,7 +97,7 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
   const requestHeaders = await headers();
   const host = requestHeaders.get("host") || "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const accessPath = `/orders/access/${token}`;
+  let accessPath = `/orders/access/${token}`;
   let emailWarning: string | undefined;
   try {
     await sendStagingOrderAccessEmail({
@@ -108,6 +108,7 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
     });
   } catch {
     emailWarning = "The order was created, but the staging access email could not be delivered.";
+    accessPath += "?email=failed";
   }
   return { ok: true, accessPath, orderNumber: String(order.order_number), emailWarning };
 }

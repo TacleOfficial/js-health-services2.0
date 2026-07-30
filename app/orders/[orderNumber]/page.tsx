@@ -16,7 +16,7 @@ export default async function OrderStatusPage({
   params, searchParams,
 }: {
   params: Promise<{ orderNumber: string }>;
-  searchParams: Promise<{ report?: string }>;
+  searchParams: Promise<{ report?: string; email?: string }>;
 }) {
   const { orderNumber } = await params;
   const query = await searchParams;
@@ -47,6 +47,7 @@ export default async function OrderStatusPage({
     <span className="eyebrow">SECURE STAGING ORDER STATUS</span>
     <div className="order-status-heading"><div><h1>{orderNumber}</h1><p>Placed {new Date(order.created_at).toLocaleDateString()} · {formatUsd(order.total_cents)}</p></div><Badge tone={order.payment_status==="verified"?"verified":"warm"}>{String(order.order_status).replaceAll("_"," ")}</Badge></div>
     {query.report==="submitted"?<div className="admin-success">Fictional payment details submitted for administrator review.</div>:null}
+    {query.email==="failed"?<div className="demo-alert"><Info/><div><strong>Staging email not delivered</strong><p>The order is safe and accessible in this browser, but its controlled-inbox access email needs to be retried.</p></div></div>:null}
     {query.report==="invalid"||query.report==="failed"?<div className="demo-alert"><Info/><div><strong>Payment report not submitted</strong><p>Review the fictional payment details and try again.</p></div></div>:null}
     <Card className="order-timeline">
       <div className="done"><Check/><span><strong>Order created</strong><small>{new Date(order.created_at).toLocaleString()}</small></span></div>

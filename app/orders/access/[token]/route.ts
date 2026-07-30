@@ -14,7 +14,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .is("customer_user_id", null)
     .maybeSingle();
   if (!order) return NextResponse.redirect(new URL("/checkout?access=expired", request.url));
-  const response = NextResponse.redirect(new URL(`/orders/${order.order_number}`, request.url));
+  const emailFailed = request.nextUrl.searchParams.get("email") === "failed";
+  const response = NextResponse.redirect(new URL(`/orders/${order.order_number}${emailFailed?"?email=failed":""}`, request.url));
   const expires = new Date(order.guest_access_expires_at);
   response.cookies.set(guestAccessCookie, token, {
     httpOnly: true, secure: request.nextUrl.protocol === "https:", sameSite: "lax",
