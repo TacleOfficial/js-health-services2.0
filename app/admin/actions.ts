@@ -49,62 +49,88 @@ async function requireSuperAdmin() {
 
 const adminPhoneSchema = z.string().trim().regex(/^\+[1-9]\d{7,14}$/, "Use E.164 format, such as +13175550123.");
 
-export async function saveAdminSmsPhone(data: FormData) {
-  await requireSuperAdmin();
-  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
-  const phone = adminPhoneSchema.parse(value(data, "phone_e164"));
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
-  const { error } = await supabase.rpc("admin_set_sms_phone", { p_admin_user_id: adminUserId, p_phone_e164: phone });
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin");
+export type AdminSmsActionState = { ok: boolean; message: string };
+const smsActionError = (error: unknown): AdminSmsActionState => ({
+  ok: false,
+  message: error instanceof z.ZodError ? error.issues[0]?.message ?? "Check the entered value." : error instanceof Error ? error.message : "Unable to update SMS settings.",
+});
+
+export async function saveAdminSmsPhone(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    await requireSuperAdmin();
+    const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+    const phone = adminPhoneSchema.parse(value(data, "phone_e164"));
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.rpc("admin_set_sms_phone", { p_admin_user_id: adminUserId, p_phone_e164: phone });
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin");
+    return { ok: true, message: "Phone number saved. Send a verification code to continue." };
+  } catch (error) {
+    return smsActionError(error);
+  }
 }
 
-export async function requestAdminSmsVerification(data: FormData) {
-  await requireSuperAdmin();
-  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
-  const code = String(randomInt(100000, 1000000));
-  const salt = randomBytes(16).toString("hex");
-  const hash = createHash("sha256").update(code + salt).digest("hex");
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
-  const { data: rows, error } = await supabase.rpc("admin_create_sms_challenge", {
-    p_admin_user_id: adminUserId, p_code_salt: salt, p_code_hash: hash,
-  });
-  if (error) throw new Error(error.message);
-  const challenge = Array.isArray(rows) ? rows[0] : rows;
-  if (!challenge?.phone_e164) throw new Error("Save a valid reviewer phone number first.");
-  await sendTransactionalSms({
-    recipient: challenge.phone_e164,
-    content: `Your Velle manager SMS verification code is ${code}. It expires in 10 minutes.`,
-    tag: "admin-sms-verification",
-  });
-  revalidatePath("/admin");
+export async function requestAdminSmsVerification(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    await requireSuperAdmin();
+    const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+    const code = String(randomInt(100000, 1000000));
+    const salt = randomBytes(16).toString("hex");
+    const hash = createHash("sha256").update(code + salt).digest("hex");
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { data: rows, error } = await supabase.rpc("admin_create_sms_challenge", {
+      p_admin_user_id: adminUserId, p_code_salt: salt, p_code_hash: hash,
+    });
+    if (error) throw new Error(error.message);
+    const challenge = Array.isArray(rows) ? rows[0] : rows;
+    if (!challenge?.phone_e164) throw new Error("Save a valid reviewer phone number first.");
+    await sendTransactionalSms({
+      recipient: challenge.phone_e164,
+      content: `Your Velle manager SMS verification code is ${code}. It expires in 10 minutes.`,
+      tag: "admin-sms-verification",
+    });
+    revalidatePath("/admin");
+    return { ok: true, message: "Verification code sent. It expires in 10 minutes." };
+  } catch (error) {
+    return smsActionError(error);
+  }
 }
 
-export async function confirmAdminSmsVerification(data: FormData) {
-  await requireSuperAdmin();
-  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
-  const code = z.string().regex(/^\d{6}$/).parse(value(data, "verification_code"));
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
-  const { data: verified, error } = await supabase.rpc("admin_confirm_sms_challenge", {
-    p_admin_user_id: adminUserId, p_code: code,
-  });
-  if (error) throw new Error(error.message);
-  if (!verified) throw new Error("The verification code is invalid, expired, or has too many failed attempts.");
-  revalidatePath("/admin");
+export async function confirmAdminSmsVerification(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    await requireSuperAdmin();
+    const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+    const code = z.string().regex(/^\d{6}$/, "Enter the six-digit verification code.").parse(value(data, "verification_code"));
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { data: verified, error } = await supabase.rpc("admin_confirm_sms_challenge", {
+      p_admin_user_id: adminUserId, p_code: code,
+    });
+    if (error) throw new Error(error.message);
+    if (!verified) throw new Error("The verification code is invalid, expired, or has too many failed attempts.");
+    revalidatePath("/admin");
+    return { ok: true, message: "Phone number verified. SMS alerts can now be enabled." };
+  } catch (error) {
+    return smsActionError(error);
+  }
 }
 
-export async function setAdminSmsEnabled(data: FormData) {
-  await requireSuperAdmin();
-  const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
-  const enabled = value(data, "enabled") === "true";
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) throw new Error("Supabase is not configured.");
-  const { error } = await supabase.rpc("admin_set_sms_enabled", { p_admin_user_id: adminUserId, p_enabled: enabled });
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin");
+export async function setAdminSmsEnabled(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    await requireSuperAdmin();
+    const adminUserId = z.string().uuid().parse(value(data, "admin_user_id"));
+    const enabled = value(data, "enabled") === "true";
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.rpc("admin_set_sms_enabled", { p_admin_user_id: adminUserId, p_enabled: enabled });
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin");
+    return { ok: true, message: enabled ? "SMS alerts enabled." : "SMS alerts disabled." };
+  } catch (error) {
+    return smsActionError(error);
+  }
 }
 
 export async function changeCommerceMode(data: FormData) {

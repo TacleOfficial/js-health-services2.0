@@ -4,12 +4,13 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, CreditCard, Database
 import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { formatUsd } from "@/lib/commerce/money";
-import { setPaymentMethodEnabled, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel, changeShippingSettings, recordManualShipment, markManualShipmentDelivered, saveAdminSmsPhone, requestAdminSmsVerification, confirmAdminSmsVerification, setAdminSmsEnabled } from "./actions";
+import { setPaymentMethodEnabled, changeCommerceMode, updatePaymentDestination, purchaseOrderLabel, changeShippingSettings, recordManualShipment, markManualShipmentDelivered } from "./actions";
 import { requireAdmin } from "@/lib/account";
 import { AdminInventoryActions } from "@/components/admin-inventory-actions";
 import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from "@/lib/commerce/runtime";
 import { AdminTaxRateForm } from "@/components/admin-tax-rate-form";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { AdminSmsControls } from "@/components/admin-sms-controls";
 
 export const metadata: Metadata = { title: "Admin operations · Private staging", robots: { index: false, follow: false } };
 type View = "queue" | "orders" | "inventory" | "settings";
@@ -137,19 +138,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {isSuperAdmin && <Card className="admin-sms-panel">
         <div className="admin-data-head"><MessageSquareText/><div><h2>Manager SMS alerts</h2><p>Brevo alerts are independent from push notifications. {process.env.ADMIN_SMS_ENABLED==="true" ? "Live delivery is enabled." : "Live delivery is disabled by ADMIN_SMS_ENABLED."}</p></div><Badge tone={process.env.BREVO_API_KEY&&process.env.BREVO_SMS_SENDER&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.BREVO_API_KEY&&process.env.BREVO_SMS_SENDER&&process.env.APP_BASE_URL?"Configured":"Configuration required"}</Badge></div>
         {smsFailureCount > 0 && <p className="admin-sms-warning">{smsFailureCount} SMS delivery {smsFailureCount===1?"failure requires":"failures require"} review.</p>}
-        <div className="admin-sms-list">{smsReviewers.map(reviewer => <section key={reviewer.userId} className="admin-sms-reviewer">
-          <div className="admin-sms-identity"><strong>{reviewer.name}</strong><span>{reviewer.email || reviewer.userId}</span><small>{reviewer.roles.join(", ").replaceAll("_"," ")}</small></div>
-          <form action={saveAdminSmsPhone} className="admin-sms-phone-form">
-            <input type="hidden" name="admin_user_id" value={reviewer.userId}/><Input name="phone_e164" aria-label={`Phone for ${reviewer.name}`} defaultValue={reviewer.phone ?? ""} placeholder="+13175550123" required/><Button variant="outline">Save number</Button>
-          </form>
-          <div className="admin-sms-verification">
-            {reviewer.verifiedAt ? <Badge tone="verified">Verified ••••{reviewer.phone?.slice(-4)}</Badge> : <>
-              <form action={requestAdminSmsVerification}><input type="hidden" name="admin_user_id" value={reviewer.userId}/><Button variant="outline" disabled={!reviewer.phone}>Send code</Button></form>
-              <form action={confirmAdminSmsVerification}><input type="hidden" name="admin_user_id" value={reviewer.userId}/><Input name="verification_code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6-digit code" required/><Button variant="outline">Verify</Button></form>
-            </>}
-          </div>
-          <form action={setAdminSmsEnabled}><input type="hidden" name="admin_user_id" value={reviewer.userId}/><input type="hidden" name="enabled" value={String(!reviewer.enabled)}/><Button disabled={!reviewer.verifiedAt} variant={reviewer.enabled?"outline":"primary"}>{reviewer.enabled?"Disable alerts":"Enable alerts"}</Button></form>
-        </section>)}</div>
+        <div className="admin-sms-list">{smsReviewers.map(reviewer => <AdminSmsControls key={reviewer.userId} reviewer={reviewer}/>)}</div>
         {!smsReviewers.length && <div className="admin-empty"><MessageSquareText/><h3>No eligible reviewers</h3><p>Assign an active payment reviewer, manager, or super-admin role first.</p></div>}
       </Card>}
       <Card className="mode-panel">
