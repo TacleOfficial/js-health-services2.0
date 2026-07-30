@@ -56,7 +56,7 @@ export default async function OrderStatusPage({
     {query.report==="invalid"||query.report==="failed"?<div className="demo-alert"><Info/><div><strong>Payment report not submitted</strong><p>Review the fictional payment details and try again.</p></div></div>:null}
     <Card className="order-timeline">
       <div className="done"><Check/><span><strong>Order created</strong><small>{new Date(order.created_at).toLocaleString()}</small></span></div>
-      <div className={order.payment_status==="verified"?"done":"current"}><Clock3/><span><strong>{String(order.payment_status).replaceAll("_"," ")}</strong><small>{hasSubmission?"Payment report received":"Waiting for payment report"}</small></span></div>
+      <div className={order.payment_status==="verified"?"done":"current"}><Clock3/><span><strong>{String(order.payment_status).replaceAll("_"," ")}</strong><small>{hasSubmission?"Payment report received":"Waiting for payment. If you have already submitted a payment along with proof of payment through CashApp or Zelle, please allow some time for review."}</small></span></div>
       <div className={order.payment_status==="verified"?"done":""}><LockKeyhole/><span><strong>Payment review</strong><small>{order.verified_at?`Verified ${new Date(order.verified_at).toLocaleString()}`:"Not yet verified"}</small></span></div>
       <div className={order.fulfillment_status==="delivered"?"done":order.payment_status==="verified"?"current":""}><PackageCheck/><span><strong>{String(order.fulfillment_status).replaceAll("_"," ")}</strong><small>{mode==="staging"?"Test stops at ready for fulfillment":"A label is purchased only after payment approval"}</small></span></div>
     </Card>
@@ -82,7 +82,7 @@ export default async function OrderStatusPage({
         <label>Approximate time<Input name="approximateTime" required type="time" defaultValue={time}/></label>
         <label>Available reference<Input name="transactionReference" defaultValue={mode==="staging"?`TEST-${order.order_number}`:""}/></label>
         <label className="wide">Customer note<Input name="customerNote" defaultValue={mode==="staging"?"Fictional staging payment report. No funds were sent.":""}/></label>
-        {mode==="production"&&<label className="wide">Optional private screenshot<Input name="screenshot" type="file" accept="image/jpeg,image/png,image/webp"/></label>}
+        {mode==="production"&&<label className="wide">Optional private screenshot<Input className="file-input" name="screenshot" type="file" accept="image/jpeg,image/png,image/webp"/></label>}
         {mode==="staging"&&<label className="check-row wide"><input name="fictionalAcknowledged" type="checkbox" required/><span>I confirm that no funds were sent and all payment details are fictional.</span></label>}
         <div className="form-actions wide"><Button>Submit payment report</Button></div>
       </form>
