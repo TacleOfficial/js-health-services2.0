@@ -45,3 +45,12 @@ test("product validation enforces variant and inventory invariants", async () =>
   assert.match(schema, /On hand cannot be below committed/);
   assert.match(schema, /price: z\.coerce\.number\(\)\.min\(0\)/);
 });
+
+test("AAL2 enforcement has a fail-closed database switch", async () => {
+  const migration = await readFile(new URL("supabase/migrations/0007_configurable_admin_aal2.sql", root), "utf8");
+  assert.match(migration, /require_aal2 boolean not null default false/);
+  assert.match(migration, /admin_aal2_is_required\(\)/);
+  assert.match(migration, /not public\.has_admin_role\(allowed\)/);
+  assert.match(migration, /coalesce\([\s\S]*true[\s\S]*\)/);
+  assert.match(migration, /revoke all on table public\.admin_security_settings/);
+});

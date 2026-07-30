@@ -18,8 +18,11 @@ export async function setPaymentMethodEnabled(data: FormData) {
   if (!supabase) throw new Error("Supabase is not configured.");
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || user.aud !== "authenticated") throw new Error("Administrator authentication required.");
-  const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal.data?.currentLevel !== "aal2") throw new Error("AAL2 authentication is required.");
+  const [aal, aalRequired] = await Promise.all([
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+    supabase.rpc("admin_aal2_is_required"),
+  ]);
+  if (aalRequired.data !== false && aal.data?.currentLevel !== "aal2") throw new Error("AAL2 authentication is required.");
   const { error } = await supabase.from("payment_method_configs").update({ is_active: enabled, updated_by: user.id, updated_at: new Date().toISOString() }).eq("method", method);
   if (error) throw new Error(error.message);
   revalidatePath("/admin");
