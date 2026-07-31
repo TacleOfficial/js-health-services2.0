@@ -160,6 +160,76 @@ export async function setNotificationRoute(_state: AdminSmsActionState, data: Fo
   }
 }
 
+const notificationTestContent: Record<z.infer<typeof notificationEventSchema>, { title: string; body: string }> = {
+  order_created: { title: "Velle · Test new order", body: "TEST-1001 was created for $125.00." },
+  payment_submission_created: { title: "Velle · Test payment submitted", body: "Payment submitted for TEST-1001: $125.00 via test method." },
+  payment_amount_mismatch: { title: "Velle · Test payment mismatch", body: "TEST-1001 reported $100.00 via test method; expected $125.00." },
+  payment_approved: { title: "Velle · Test payment approved", body: "Payment for TEST-1001 was approved." },
+};
+
+export async function sendNotificationRouteTest(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    const user = await requireSuperAdmin();
+    const eventType = notificationEventSchema.parse(value(data, "event_type"));
+    const channel = notificationChannelSchema.parse(value(data, "channel"));
+    const content = notificationTestContent[eventType];
+    const baseUrl = process.env.APP_BASE_URL?.replace(/\/$/, "");
+    if (!baseUrl) throw new Error("APP_BASE_URL is not configured.");
+    const testUrl = `${baseUrl}/admin?view=settings`;
+    const db = createSupabaseServiceClient();
+    let accepted = 0;
+
+    if (channel === "sms") {
+      const [{ data: preferences, error: preferencesError }, { data: assignments, error: assignmentsError }] = await Promise.all([
+        db.from("admin_sms_preferences").select("admin_user_id,phone_e164").eq("is_enabled",true).not("verified_at","is",null),
+        db.from("admin_role_assignments").select("user_id").eq("is_active",true).in("role",["payment_reviewer","manager","super_admin"]),
+      ]);
+      if (preferencesError || assignmentsError) throw new Error("Unable to read eligible SMS recipients.");
+      const eligibleIds = new Set((assignments ?? []).map(row => row.user_id));
+      const recipients = (preferences ?? []).filter(row => eligibleIds.has(row.admin_user_id));
+      if (!recipients.length) throw new Error("No verified and enabled SMS reviewers are available.");
+      const results = await Promise.allSettled(recipients.map(recipient => sendTransactionalSms({
+        recipient: recipient.phone_e164,
+        content: `[TEST] ${content.title}: ${content.body} Open: ${testUrl}`,
+        tag: `test-${eventType}`.slice(0, 50),
+      })));
+      accepted = results.filter(result => result.status === "fulfilled").length;
+      if (!accepted) throw new Error("Brevo rejected every test SMS.");
+    } else {
+      const webhookUrl = process.env.HARK_WEBHOOK_URL;
+      if (!webhookUrl) throw new Error("HARK_WEBHOOK_URL is not configured.");
+      const parsed = new URL(webhookUrl);
+      if (parsed.protocol !== "https:" || parsed.hostname !== "hark.ryan.ceo" || !/^\/hooks\/[^/]+$/.test(parsed.pathname)) {
+        throw new Error("HARK_WEBHOOK_URL is not a valid Hark webhook.");
+      }
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", "Idempotency-Key": `velle-test-${crypto.randomUUID()}` },
+        body: JSON.stringify({ title: content.title, body: `[TEST] ${content.body}`, url: testUrl }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      const result = await response.json().catch(() => ({})) as { delivered?: unknown };
+      if (response.status !== 200 && response.status !== 202) throw new Error(`Hark test failed (${response.status}).`);
+      accepted = typeof result.delivered === "number" ? result.delivered : 0;
+    }
+
+    await db.from("audit_events").insert({
+      event_type: "notification.test_sent", actor_type: "admin", actor_id: user.id,
+      new_value: { notification_event_type: eventType, channel, accepted },
+      metadata: { test: true },
+    });
+    return {
+      ok: true,
+      message: channel === "sms"
+        ? `Test SMS sent to ${accepted} reviewer${accepted === 1 ? "" : "s"}.`
+        : accepted ? `Hark accepted the test for ${accepted} device${accepted === 1 ? "" : "s"}.` : "Hark accepted the test; no device was registered.",
+    };
+  } catch (error) {
+    return smsActionError(error);
+  }
+}
+
 export async function changeCommerceMode(data: FormData) {
   const user = await requireSuperAdmin();
   const target = z.enum(["staging", "production"]).parse(value(data, "target_mode"));

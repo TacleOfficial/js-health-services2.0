@@ -51,7 +51,13 @@ test("super-admin UI itemizes independent SMS and Hark event switches", async ()
   assert.match(page, /ADMIN_HARK_ENABLED/);
   assert.match(actions, /admin_set_notification_route/);
   assert.match(actions, /requireSuperAdmin\(\)/);
+  assert.match(actions, /sendNotificationRouteTest/);
+  assert.match(actions, /No verified and enabled SMS reviewers are available/);
+  assert.match(actions, /velle-test-\$\{crypto\.randomUUID\(\)\}/);
+  assert.match(actions, /notification\.test_sent/);
   assert.match(component, /channel="sms"/);
   assert.match(component, /channel="hark"/);
   assert.match(component, /role="switch"/);
+  assert.match(component, /Send SMS test/);
+  assert.match(component, /Send Hark test/);
 });
