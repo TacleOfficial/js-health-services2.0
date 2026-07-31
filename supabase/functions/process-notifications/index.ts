@@ -82,11 +82,11 @@ async function applyHarkTemplate(
   fallback: { title: string; body: string; variables: Record<string,string> },
 ) {
   const { data, error } = await client.from("notification_hark_templates")
-    .select("title_template,body_template").eq("event_type",eventType).single();
+    .select("title_template,body_template,image_url").eq("event_type",eventType).single();
   if (error || !data) throw new Error("hark_template_unavailable");
   const render = (template: string) =>
     template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (token, key: string) => fallback.variables[key] ?? token);
-  return { title: render(data.title_template), body: render(data.body_template) };
+  return { title: render(data.title_template), body: render(data.body_template), imageUrl: data.image_url as string|null };
 }
 
 async function updateFailure(
@@ -166,7 +166,12 @@ async function processHark(client: SupabaseClient, baseUrl: string, webhookUrl: 
           "content-type": "application/json",
           "Idempotency-Key": `velle-${delivery.outbox_id}`,
         },
-        body: JSON.stringify({ title: harkContent.title, body: harkContent.body, url: `${baseUrl}${content.route}` }),
+        body: JSON.stringify({
+          title: harkContent.title,
+          body: harkContent.body,
+          ...(harkContent.imageUrl ? { imageUrl: harkContent.imageUrl } : {}),
+          url: `${baseUrl}${content.route}`,
+        }),
         signal: AbortSignal.timeout(10_000),
       });
       const result = await safeJson(response) as HarkResult;

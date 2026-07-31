@@ -59,10 +59,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   let smsFailureCount = 0;
   let harkFailureCount = 0;
   let notificationRoutes = [
-    { eventType:"order_created", label:"New order", sms:false, hark:false, harkTitle:"Velle · New order", harkBody:"{orderNumber} was created for {total}.", variables:["orderNumber","total"] },
-    { eventType:"payment_submission_created", label:"Payment submitted", sms:true, hark:false, harkTitle:"Velle · Payment submitted", harkBody:"Payment submitted for {orderNumber}: {reportedAmount} via {method}.", variables:["orderNumber","reportedAmount","method"] },
-    { eventType:"payment_amount_mismatch", label:"Payment amount mismatch", sms:true, hark:false, harkTitle:"Velle · Payment mismatch", harkBody:"{orderNumber} reported {reportedAmount} via {method}; expected {expectedAmount}.", variables:["orderNumber","reportedAmount","method","expectedAmount"] },
-    { eventType:"payment_approved", label:"Payment approved", sms:false, hark:false, harkTitle:"Velle · Payment approved", harkBody:"Payment for {orderNumber} was approved.", variables:["orderNumber"] },
+    { eventType:"order_created", label:"New order", sms:false, hark:false, harkTitle:"Velle · New order", harkBody:"{orderNumber} was created for {total}.", harkImageUrl:"", variables:["orderNumber","total"] },
+    { eventType:"payment_submission_created", label:"Payment submitted", sms:true, hark:false, harkTitle:"Velle · Payment submitted", harkBody:"Payment submitted for {orderNumber}: {reportedAmount} via {method}.", harkImageUrl:"", variables:["orderNumber","reportedAmount","method"] },
+    { eventType:"payment_amount_mismatch", label:"Payment amount mismatch", sms:true, hark:false, harkTitle:"Velle · Payment mismatch", harkBody:"{orderNumber} reported {reportedAmount} via {method}; expected {expectedAmount}.", harkImageUrl:"", variables:["orderNumber","reportedAmount","method","expectedAmount"] },
+    { eventType:"payment_approved", label:"Payment approved", sms:false, hark:false, harkTitle:"Velle · Payment approved", harkBody:"Payment for {orderNumber} was approved.", harkImageUrl:"", variables:["orderNumber"] },
   ];
   if (isSuperAdmin) {
     const service = createSupabaseServiceClient();
@@ -70,7 +70,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       service.from("admin_role_assignments").select("user_id,role").eq("is_active",true).in("role",["payment_reviewer","manager","super_admin"]),
       service.from("admin_sms_preferences").select("admin_user_id,phone_e164,verified_at,is_enabled"),
       service.from("notification_routing_settings").select("event_type,channel,is_enabled"),
-      service.from("notification_hark_templates").select("event_type,title_template,body_template"),
+      service.from("notification_hark_templates").select("event_type,title_template,body_template,image_url"),
       service.from("notification_deliveries").select("channel").in("channel",["sms","hark"]).in("status",["failed","soft_bounce","hard_bounce","rejected"]),
     ]);
     const userIds = [...new Set((roleRows ?? []).map(row => row.user_id))];
@@ -92,6 +92,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       hark: Boolean(routingRows?.find(row => row.event_type===route.eventType && row.channel==="hark")?.is_enabled),
       harkTitle: templateRows?.find(row => row.event_type===route.eventType)?.title_template ?? route.harkTitle,
       harkBody: templateRows?.find(row => row.event_type===route.eventType)?.body_template ?? route.harkBody,
+      harkImageUrl: templateRows?.find(row => row.event_type===route.eventType)?.image_url ?? route.harkImageUrl,
     }));
     smsFailureCount = failedRows?.filter(row => row.channel==="sms").length ?? 0;
     harkFailureCount = failedRows?.filter(row => row.channel==="hark").length ?? 0;

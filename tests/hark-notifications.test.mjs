@@ -40,6 +40,7 @@ test("worker sends privacy-minimized one-shot Hark notifications independently",
   assert.match(worker, /notification_hark_templates/);
   assert.match(worker, /applyHarkTemplate/);
   assert.match(worker, /`\/admin\/orders\/\$\{orderId\}`/);
+  assert.match(worker, /\{ imageUrl: harkContent\.imageUrl \}/);
 });
 
 test("order notifications deep-link to a protected admin order detail", async () => {
@@ -78,6 +79,7 @@ test("super-admin UI itemizes independent SMS and Hark event switches", async ()
   assert.match(component, /Send Hark test/);
   assert.match(component, /Edit Hark notification/);
   assert.match(component, /Available placeholders/);
+  assert.match(component, /name="image_url"/);
 });
 
 test("Hark templates are constrained, audited, and super-admin managed", async () => {
@@ -88,4 +90,16 @@ test("Hark templates are constrained, audited, and super-admin managed", async (
   assert.match(sql, /require_admin_aal2\(array\['super_admin'\]/);
   assert.match(sql, /notification\.hark_template_updated/);
   assert.match(sql, /grant execute on function public\.admin_update_hark_template\(text,text,text\) to authenticated/);
+});
+
+test("optional Hark template images are HTTPS constrained and provider-ready", async () => {
+  const [sql, actions] = await Promise.all([
+    read("supabase/migrations/0020_hark_template_image_url.sql"),
+    read("app/admin/actions.ts"),
+  ]);
+  assert.match(sql, /add column image_url text/);
+  assert.match(sql, /image_url ~ '\^https:\/\//);
+  assert.match(sql, /admin_update_hark_template\(text,text,text,text\)/);
+  assert.match(actions, /Image URLs must use HTTPS/);
+  assert.match(actions, /\{ imageUrl: template\.image_url \}/);
 });

@@ -90,7 +90,8 @@ can then select SMS, Hark, both, or neither for each supported event under
 **Admin → Settings → Notification routing**. Selections affect new events only
 and apply to both staging and production records in that deployment. Each
 event's Actions menu can edit its Hark title and body using the placeholders
-shown in the dialog, or send a clearly marked provider test.
+shown in the dialog, optionally set a public HTTPS avatar image URL, or send a
+clearly marked provider test.
 
 Keep `ADMIN_HARK_ENABLED=false` until a test Hark service has accepted a
 controlled notification. Rotate a leaked webhook in the Hark dashboard and

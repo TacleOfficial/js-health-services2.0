@@ -185,6 +185,11 @@ export async function saveHarkNotificationTemplate(_state: AdminSmsActionState, 
     const eventType = notificationEventSchema.parse(value(data, "event_type"));
     const title = z.string().trim().min(1, "Enter a notification title.").max(80, "Titles are limited to 80 characters.").parse(value(data, "title_template"));
     const body = z.string().trim().min(1, "Enter a notification body.").max(2000, "Bodies are limited to 2,000 characters.").parse(value(data, "body_template"));
+    const imageValue = value(data, "image_url").trim();
+    const imageUrl = imageValue
+      ? z.url("Enter a valid image URL.").max(2048, "Image URLs are limited to 2,048 characters.")
+        .refine(url => new URL(url).protocol === "https:", "Image URLs must use HTTPS.").parse(imageValue)
+      : "";
     const allowed = new Set(notificationTemplateVariables[eventType]);
     const placeholders = [...`${title} ${body}`.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]);
     const unknown = placeholders.find(placeholder => !allowed.has(placeholder));
@@ -192,7 +197,7 @@ export async function saveHarkNotificationTemplate(_state: AdminSmsActionState, 
     const supabase = await createSupabaseServerClient();
     if (!supabase) throw new Error("Supabase is not configured.");
     const { error } = await supabase.rpc("admin_update_hark_template", {
-      p_event_type: eventType, p_title_template: title, p_body_template: body,
+      p_event_type: eventType, p_title_template: title, p_body_template: body, p_image_url: imageUrl,
     });
     if (error) throw new Error(error.message);
     revalidatePath("/admin");
@@ -238,7 +243,7 @@ export async function sendNotificationRouteTest(_state: AdminSmsActionState, dat
         throw new Error("HARK_WEBHOOK_URL is not a valid Hark webhook.");
       }
       const { data: template, error: templateError } = await db.from("notification_hark_templates")
-        .select("title_template,body_template").eq("event_type",eventType).single();
+        .select("title_template,body_template,image_url").eq("event_type",eventType).single();
       if (templateError || !template) throw new Error("The Hark notification template is unavailable.");
       const response = await fetch(webhookUrl, {
         method: "POST",
@@ -246,6 +251,7 @@ export async function sendNotificationRouteTest(_state: AdminSmsActionState, dat
         body: JSON.stringify({
           title: renderNotificationTemplate(template.title_template),
           body: `[TEST] ${renderNotificationTemplate(template.body_template)}`,
+          ...(template.image_url ? { imageUrl: template.image_url } : {}),
           url: testUrl,
         }),
         cache: "no-store",

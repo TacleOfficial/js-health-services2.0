@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 
 type Route = {
   eventType: string; label: string; sms: boolean; hark: boolean;
-  harkTitle: string; harkBody: string; variables: string[];
+  harkTitle: string; harkBody: string; harkImageUrl: string; variables: string[];
 };
 const initialState: AdminSmsActionState = { ok: true, message: "" };
 
@@ -67,6 +67,7 @@ function TestActions({ route }: { route: Route }) {
           <input type="hidden" name="event_type" value={eventType}/>
           <label>Title<input name="title_template" defaultValue={route.harkTitle} maxLength={80} required/></label>
           <label>Body<textarea name="body_template" defaultValue={route.harkBody} maxLength={2000} rows={5} required/></label>
+          <label>Image URL <span>Optional public HTTPS image used as the Hark notification avatar.</span><input name="image_url" type="url" inputMode="url" defaultValue={route.harkImageUrl} maxLength={2048} placeholder="https://example.com/notification.png"/></label>
           <div className="hark-template-variables">
             <span>Available placeholders</span>
             <div>{route.variables.map(variable => <code key={variable}>{`{${variable}}`}</code>)}</div>
