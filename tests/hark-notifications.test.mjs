@@ -116,3 +116,11 @@ test("optional Hark template images are HTTPS constrained and provider-ready", a
   assert.match(actions, /uploadHarkNotificationImage/);
   assert.match(actions, /`notifications\/\$\{eventType\}\/\$\{crypto\.randomUUID\(\)\}/);
 });
+
+test("delivery claim functions qualify columns that conflict with table return names", async () => {
+  const sql = await read("supabase/migrations/0021_fix_notification_claim_ambiguity.sql");
+  assert.match(sql, /d\.attempt_count < 5/);
+  assert.match(sql, /d\.attempt_count >= 5/);
+  assert.doesNotMatch(sql, /and attempt_count (?:<|>=) 5/);
+  assert.match(sql, /grant execute on function public\.claim_admin_hark_deliveries\(integer\) to service_role/);
+});
