@@ -19,6 +19,8 @@ test("notification routing is audited, prospective, and seeded with preserved SM
   assert.match(sql, /set hark_fanned_out_at=now\(\)/);
   assert.match(sql, /notification_deliveries_hark_event_idx/);
   assert.match(sql, /channel='hark' and recipient_user_id is null/);
+  assert.match(sql, /drop function public\.claim_admin_sms_deliveries\(integer\)/);
+  assert.match(sql, /grant execute on function public\.claim_admin_sms_deliveries\(integer\) to service_role/);
 });
 
 test("worker sends privacy-minimized one-shot Hark notifications independently", async () => {

@@ -97,7 +97,9 @@ begin
 end;
 $$;
 
-create or replace function public.claim_admin_sms_deliveries(p_limit integer default 50)
+drop function public.claim_admin_sms_deliveries(integer);
+
+create function public.claim_admin_sms_deliveries(p_limit integer default 50)
 returns table(
   delivery_id uuid, outbox_id uuid, recipient_user_id uuid, phone_e164 text,
   event_type text, aggregate_id uuid, payload jsonb,
@@ -213,6 +215,8 @@ $$;
 
 revoke all on function public.admin_set_notification_route(text,text,boolean) from public, anon;
 grant execute on function public.admin_set_notification_route(text,text,boolean) to authenticated;
+revoke all on function public.claim_admin_sms_deliveries(integer) from public, anon, authenticated;
+grant execute on function public.claim_admin_sms_deliveries(integer) to service_role;
 revoke all on function public.claim_admin_hark_deliveries(integer) from public, anon, authenticated;
 grant execute on function public.claim_admin_hark_deliveries(integer) to service_role;
 
