@@ -71,6 +71,33 @@ and configure a secured Brevo transactional SMS webhook pointing to
 intended reviewer numbers from **Admin → Settings**. Both staging and production
 payment submissions are eligible once the flag is enabled.
 
+## Shared Hark iPhone alerts
+
+Hark is an optional, independent one-shot iPhone notification channel. Create a
+service at [hark.ryan.ceo](https://hark.ryan.ceo), register the shared operations
+iPhones, and store the secret webhook URL only in the server and Edge Function
+environment:
+
+```text
+HARK_WEBHOOK_URL=https://hark.ryan.ceo/hooks/whk_your_token
+ADMIN_HARK_ENABLED=false
+APP_BASE_URL=https://your-canonical-app.example
+ADMIN_PUSH_WEBHOOK_SECRET=
+```
+
+Apply the latest migrations and deploy `process-notifications`. A super-admin
+can then select SMS, Hark, both, or neither for each supported event under
+**Admin → Settings → Notification routing**. Selections affect new events only
+and apply to both staging and production records in that deployment.
+
+Keep `ADMIN_HARK_ENABLED=false` until a test Hark service has accepted a
+controlled notification. Rotate a leaked webhook in the Hark dashboard and
+replace the deployment secret immediately; the Admin UI never displays it.
+Hark accepts `200`/`202` requests, including `delivered: 0` when no phone is
+registered. Rate-limited and provider failures are retried independently from
+SMS and Expo push. Interactive approvals, device routing, and Live Activities
+are intentionally not part of this integration.
+
 ## Administrator iPhone app
 
 The Expo Router project lives in `admin-mobile` and is linked to its staging EAS

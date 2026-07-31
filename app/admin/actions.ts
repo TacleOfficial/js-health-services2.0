@@ -133,6 +133,33 @@ export async function setAdminSmsEnabled(_state: AdminSmsActionState, data: Form
   }
 }
 
+const notificationEventSchema = z.enum([
+  "order_created",
+  "payment_submission_created",
+  "payment_amount_mismatch",
+  "payment_approved",
+]);
+const notificationChannelSchema = z.enum(["sms", "hark"]);
+
+export async function setNotificationRoute(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    await requireSuperAdmin();
+    const eventType = notificationEventSchema.parse(value(data, "event_type"));
+    const channel = notificationChannelSchema.parse(value(data, "channel"));
+    const enabled = value(data, "enabled") === "true";
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.rpc("admin_set_notification_route", {
+      p_event_type: eventType, p_channel: channel, p_enabled: enabled,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin");
+    return { ok: true, message: `${channel === "sms" ? "SMS" : "Hark"} routing ${enabled ? "enabled" : "disabled"}.` };
+  } catch (error) {
+    return smsActionError(error);
+  }
+}
+
 export async function changeCommerceMode(data: FormData) {
   const user = await requireSuperAdmin();
   const target = z.enum(["staging", "production"]).parse(value(data, "target_mode"));

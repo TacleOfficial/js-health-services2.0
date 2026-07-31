@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, CreditCard, Database, MessageSquareText, Package, Plus, Search } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, BellRing, CheckCircle2, Clock3, CreditCard, Database, MessageSquareText, Package, Plus, Search } from "lucide-react";
 import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import { formatUsd } from "@/lib/commerce/money";
@@ -11,6 +11,7 @@ import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from 
 import { AdminTaxRateForm } from "@/components/admin-tax-rate-form";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { AdminSmsControls } from "@/components/admin-sms-controls";
+import { AdminNotificationRouting } from "@/components/admin-notification-routing";
 
 export const metadata: Metadata = { title: "Admin operations · Private staging", robots: { index: false, follow: false } };
 type View = "queue" | "orders" | "inventory" | "settings";
@@ -56,12 +57,20 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const isSuperAdmin = Boolean(superAdminResult.data);
   let smsReviewers: Array<{ userId:string; name:string; email:string; roles:string[]; phone:string|null; verifiedAt:string|null; enabled:boolean }> = [];
   let smsFailureCount = 0;
+  let harkFailureCount = 0;
+  let notificationRoutes = [
+    { eventType:"order_created", label:"New order", sms:false, hark:false },
+    { eventType:"payment_submission_created", label:"Payment submitted", sms:true, hark:false },
+    { eventType:"payment_amount_mismatch", label:"Payment amount mismatch", sms:true, hark:false },
+    { eventType:"payment_approved", label:"Payment approved", sms:false, hark:false },
+  ];
   if (isSuperAdmin) {
     const service = createSupabaseServiceClient();
-    const [{ data: roleRows }, { data: preferenceRows }, { count: failureCount }] = await Promise.all([
+    const [{ data: roleRows }, { data: preferenceRows }, { data: routingRows }, { data: failedRows }] = await Promise.all([
       service.from("admin_role_assignments").select("user_id,role").eq("is_active",true).in("role",["payment_reviewer","manager","super_admin"]),
       service.from("admin_sms_preferences").select("admin_user_id,phone_e164,verified_at,is_enabled"),
-      service.from("notification_deliveries").select("id",{count:"exact",head:true}).eq("channel","sms").in("status",["failed","soft_bounce","hard_bounce","rejected"]),
+      service.from("notification_routing_settings").select("event_type,channel,is_enabled"),
+      service.from("notification_deliveries").select("channel").in("channel",["sms","hark"]).in("status",["failed","soft_bounce","hard_bounce","rejected"]),
     ]);
     const userIds = [...new Set((roleRows ?? []).map(row => row.user_id))];
     const { data: profileRows } = userIds.length
@@ -76,7 +85,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         phone: preference?.phone_e164 ?? null, verifiedAt: preference?.verified_at ?? null, enabled: Boolean(preference?.is_enabled),
       };
     });
-    smsFailureCount = failureCount ?? 0;
+    notificationRoutes = notificationRoutes.map(route => ({
+      ...route,
+      sms: Boolean(routingRows?.find(row => row.event_type===route.eventType && row.channel==="sms")?.is_enabled),
+      hark: Boolean(routingRows?.find(row => row.event_type===route.eventType && row.channel==="hark")?.is_enabled),
+    }));
+    smsFailureCount = failedRows?.filter(row => row.channel==="sms").length ?? 0;
+    harkFailureCount = failedRows?.filter(row => row.channel==="hark").length ?? 0;
   }
   const inventoryRows = (inventoryResult.data ?? []).filter(row => {
     const variant = Array.isArray(row.product_variants) ? row.product_variants[0] : row.product_variants;
@@ -135,6 +150,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     })}</div>{!inventoryRows.length && <div className="admin-empty"><Database/><h3>No {inventoryStatus === "all" ? "" : `${inventoryStatus} `}inventory records</h3><p>Add a product or choose another status filter.</p></div>}</Card>}
 
     {view === "settings" && <div className="commerce-settings-grid">
+      {isSuperAdmin && <Card className="admin-sms-panel notification-routing-panel">
+        <div className="admin-data-head"><BellRing/><div><h2>Notification routing</h2><p>Choose SMS, Hark, both, or neither for each new operational event. Changes do not release historical events.</p></div></div>
+        <div className="notification-provider-status">
+          <div><strong>SMS · Brevo</strong><Badge tone={process.env.ADMIN_SMS_ENABLED==="true"&&process.env.BREVO_API_KEY&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.ADMIN_SMS_ENABLED==="true" ? process.env.BREVO_API_KEY&&process.env.APP_BASE_URL ? "Enabled" : "Configuration required" : "Disabled"}</Badge><small>{smsFailureCount} failed</small></div>
+          <div><strong>Hark · Shared operations</strong><Badge tone={process.env.ADMIN_HARK_ENABLED==="true"&&process.env.HARK_WEBHOOK_URL&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.ADMIN_HARK_ENABLED==="true" ? process.env.HARK_WEBHOOK_URL&&process.env.APP_BASE_URL ? "Enabled" : "Configuration required" : "Disabled"}</Badge><small>{harkFailureCount} failed</small></div>
+        </div>
+        <AdminNotificationRouting routes={notificationRoutes}/>
+      </Card>}
       {isSuperAdmin && <Card className="admin-sms-panel">
         <div className="admin-data-head"><MessageSquareText/><div><h2>Manager SMS alerts</h2><p>Brevo alerts are independent from push notifications. {process.env.ADMIN_SMS_ENABLED==="true" ? "Live delivery is enabled." : "Live delivery is disabled by ADMIN_SMS_ENABLED."}</p></div><Badge tone={process.env.BREVO_API_KEY&&process.env.APP_BASE_URL?"verified":"warm"}>{process.env.BREVO_API_KEY&&process.env.APP_BASE_URL?"Configured":"Configuration required"}</Badge></div>
         {smsFailureCount > 0 && <p className="admin-sms-warning">{smsFailureCount} SMS delivery {smsFailureCount===1?"failure requires":"failures require"} review.</p>}
