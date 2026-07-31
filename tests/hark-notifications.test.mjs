@@ -54,6 +54,17 @@ test("order notifications deep-link to a protected admin order detail", async ()
   assert.match(list, /`\/admin\/orders\/\$\{order\.id\}`/);
 });
 
+test("order creation and payment approval wake the independent notification worker", async () => {
+  const [checkout, actions, trigger] = await Promise.all([
+    read("app/checkout/actions.ts"),
+    read("app/admin/actions.ts"),
+    read("lib/notifications.ts"),
+  ]);
+  assert.match(checkout, /if \(error \|\| !order\)[\s\S]*await processNotificationsBestEffort\(\)/);
+  assert.match(actions, /approve_payment[\s\S]*await processNotificationsBestEffort\(\)/);
+  assert.doesNotMatch(trigger, /ADMIN_SMS_ENABLED|ADMIN_HARK_ENABLED/);
+});
+
 test("super-admin UI itemizes independent SMS and Hark event switches", async () => {
   const [page, actions, component] = await Promise.all([
     read("app/admin/page.tsx"),

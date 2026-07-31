@@ -10,6 +10,7 @@ import { createOrderNumber } from "@/lib/commerce/order-number";
 import { sendOrderLifecycleEmail } from "@/lib/providers/brevo";
 import { createShippoRateQuote, retrieveShippoRate, validateShippoAddress, type ShippoAddress } from "@/lib/providers/shippo";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { processNotificationsBestEffort } from "@/lib/notifications";
 
 const detailsSchema = z.object({
   firstName: z.string().trim().min(1).max(80), lastName: z.string().trim().min(1).max(80),
@@ -144,6 +145,7 @@ export async function createGuestStagingOrder(raw: unknown): Promise<GuestChecko
     p_address_validation_status: "validated", p_address_validation_snapshot: addressSnapshot,
   });
   if (error || !order) return { ok: false, message: error?.message.includes("insufficient_inventory") ? "An item is no longer available." : "The order could not be created." };
+  await processNotificationsBestEffort();
   if (runtime.mode === "production" && shippingSettings.mode === "shippo") await db.from("shippo_shipments").insert({ order_id: order.id, commerce_mode: "production", shippo_shipment_id: input.shippoShipmentId, shippo_rate_id: shippoRateId, rate_snapshot: shippingSnapshot });
   const requestHeaders = await headers(); const host = requestHeaders.get("host") || "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");

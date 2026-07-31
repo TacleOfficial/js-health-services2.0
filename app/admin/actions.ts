@@ -12,6 +12,7 @@ import { getCommerceRuntime, getProductionReadiness, getShippingSettings } from 
 import { purchaseShippoLabel } from "@/lib/providers/shippo";
 import { sendOrderLifecycleEmail, sendTransactionalSms } from "@/lib/providers/brevo";
 import { createHash, randomBytes, randomInt } from "node:crypto";
+import { processNotificationsBestEffort } from "@/lib/notifications";
 
 const value = (data: FormData, key: string) => String(data.get(key) ?? "");
 
@@ -480,6 +481,7 @@ export async function approvePayment(data: FormData) {
   const note = z.string().trim().max(500).parse(value(data, "note"));
   const { error } = await supabase.rpc("approve_payment", { p_submission_id: submissionId, p_note: note || null });
   if (error) throw new Error(error.message);
+  await processNotificationsBestEffort();
   const db = createSupabaseServiceClient();
   const { data: submission } = await db.from("payment_submissions").select("id,orders!inner(order_number,customer_email,commerce_mode)").eq("id",submissionId).single();
   const order = Array.isArray(submission?.orders) ? submission.orders[0] : submission?.orders;
