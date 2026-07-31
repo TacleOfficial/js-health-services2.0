@@ -37,6 +37,8 @@ test("worker sends privacy-minimized one-shot Hark notifications independently",
   assert.doesNotMatch(worker, /customer_(?:email|phone)|sender_contact|transaction_reference|internal_admin_note/);
   assert.match(worker, /const sms: ChannelStats/);
   assert.match(worker, /const hark: ChannelStats/);
+  assert.match(worker, /notification_hark_templates/);
+  assert.match(worker, /applyHarkTemplate/);
 });
 
 test("super-admin UI itemizes independent SMS and Hark event switches", async () => {
@@ -55,9 +57,23 @@ test("super-admin UI itemizes independent SMS and Hark event switches", async ()
   assert.match(actions, /No verified and enabled SMS reviewers are available/);
   assert.match(actions, /velle-test-\$\{crypto\.randomUUID\(\)\}/);
   assert.match(actions, /notification\.test_sent/);
+  assert.match(actions, /saveHarkNotificationTemplate/);
+  assert.match(actions, /admin_update_hark_template/);
   assert.match(component, /channel="sms"/);
   assert.match(component, /channel="hark"/);
   assert.match(component, /role="switch"/);
   assert.match(component, /Send SMS test/);
   assert.match(component, /Send Hark test/);
+  assert.match(component, /Edit Hark notification/);
+  assert.match(component, /Available placeholders/);
+});
+
+test("Hark templates are constrained, audited, and super-admin managed", async () => {
+  const sql = await read("supabase/migrations/0019_hark_notification_templates.sql");
+  assert.match(sql, /create table public\.notification_hark_templates/);
+  assert.match(sql, /char_length\(trim\(title_template\)\) between 1 and 80/);
+  assert.match(sql, /char_length\(trim\(body_template\)\) between 1 and 2000/);
+  assert.match(sql, /require_admin_aal2\(array\['super_admin'\]/);
+  assert.match(sql, /notification\.hark_template_updated/);
+  assert.match(sql, /grant execute on function public\.admin_update_hark_template\(text,text,text\) to authenticated/);
 });

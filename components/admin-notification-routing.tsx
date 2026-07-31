@@ -1,12 +1,16 @@
 "use client";
 
-import { startTransition, useActionState } from "react";
-import { BellRing, MessageSquareText, MoreHorizontal } from "lucide-react";
-import { sendNotificationRouteTest, setNotificationRoute, type AdminSmsActionState } from "@/app/admin/actions";
+import { startTransition, useActionState, useState } from "react";
+import { BellRing, MessageSquareText, MoreHorizontal, Pencil } from "lucide-react";
+import { Dialog } from "radix-ui";
+import { saveHarkNotificationTemplate, sendNotificationRouteTest, setNotificationRoute, type AdminSmsActionState } from "@/app/admin/actions";
 import { Button } from "@/components/ui";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-type Route = { eventType: string; label: string; sms: boolean; hark: boolean };
+type Route = {
+  eventType: string; label: string; sms: boolean; hark: boolean;
+  harkTitle: string; harkBody: string; variables: string[];
+};
 const initialState: AdminSmsActionState = { ok: true, message: "" };
 
 function RouteToggle({ eventType, channel, enabled, label }: {
@@ -29,15 +33,18 @@ function RouteToggle({ eventType, channel, enabled, label }: {
   </form>;
 }
 
-function TestActions({ eventType, label }: { eventType: string; label: string }) {
+function TestActions({ route }: { route: Route }) {
+  const { eventType, label } = route;
+  const [editOpen, setEditOpen] = useState(false);
   const [state, action, pending] = useActionState(sendNotificationRouteTest, initialState);
+  const [editState, editAction, editPending] = useActionState(saveHarkNotificationTemplate, initialState);
   const send = (channel: "sms"|"hark") => {
     const formData = new FormData();
     formData.set("event_type", eventType);
     formData.set("channel", channel);
     startTransition(() => action(formData));
   };
-  return <div className="notification-test-actions">
+  return <Dialog.Root open={editOpen} onOpenChange={setEditOpen}><div className="notification-test-actions">
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button size="icon" variant="ghost" disabled={pending} aria-label={`Test actions for ${label}`}><MoreHorizontal/></Button>
@@ -46,10 +53,33 @@ function TestActions({ eventType, label }: { eventType: string; label: string })
         <DropdownMenuLabel>Send test notification</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => send("sms")}><MessageSquareText/> Send SMS test</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => send("hark")}><BellRing/> Send Hark test</DropdownMenuItem>
+        <DropdownMenuSeparator/>
+        <DropdownMenuItem onSelect={() => setEditOpen(true)}><Pencil/> Edit Hark notification</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
     {state.message && <small className={state.ok ? "success" : "error"} role={state.ok ? "status" : "alert"}>{state.message}</small>}
-  </div>;
+    <Dialog.Portal>
+      <Dialog.Overlay className="dialog-overlay"/>
+      <Dialog.Content className="admin-confirm-dialog hark-template-dialog" aria-describedby={`hark-template-description-${eventType}`}>
+        <Dialog.Title>Edit Hark notification</Dialog.Title>
+        <Dialog.Description id={`hark-template-description-${eventType}`}>Customize the one-shot Hark notification for <strong>{label}</strong>.</Dialog.Description>
+        <form action={editAction}>
+          <input type="hidden" name="event_type" value={eventType}/>
+          <label>Title<input name="title_template" defaultValue={route.harkTitle} maxLength={80} required/></label>
+          <label>Body<textarea name="body_template" defaultValue={route.harkBody} maxLength={2000} rows={5} required/></label>
+          <div className="hark-template-variables">
+            <span>Available placeholders</span>
+            <div>{route.variables.map(variable => <code key={variable}>{`{${variable}}`}</code>)}</div>
+          </div>
+          {editState.message && <p className={editState.ok ? "success" : "error"} role={editState.ok ? "status" : "alert"}>{editState.message}</p>}
+          <div className="admin-confirm-actions">
+            <Dialog.Close asChild><Button type="button" variant="outline">Cancel</Button></Dialog.Close>
+            <Button disabled={editPending}>{editPending ? "Saving…" : "Save notification"}</Button>
+          </div>
+        </form>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </div></Dialog.Root>;
 }
 
 export function AdminNotificationRouting({ routes }: { routes: Route[] }) {
@@ -61,7 +91,7 @@ export function AdminNotificationRouting({ routes }: { routes: Route[] }) {
       <span><strong>{route.label}</strong><small>{route.eventType}</small></span>
       <RouteToggle eventType={route.eventType} channel="sms" enabled={route.sms} label={route.label}/>
       <RouteToggle eventType={route.eventType} channel="hark" enabled={route.hark} label={route.label}/>
-      <TestActions eventType={route.eventType} label={route.label}/>
+      <TestActions route={route}/>
     </div>)}
   </div>;
 }

@@ -36,10 +36,16 @@ async function notificationContent(client: SupabaseClient, delivery: BaseDeliver
   const orderUrl = `/admin?view=orders&q=${encodeURIComponent(orderNumber)}`;
 
   if (delivery.event_type === "order_created") {
-    return { title: "Velle · New order", body: `${orderNumber} was created for ${money(order.total_cents)}.`, route: orderUrl };
+    return {
+      title: "Velle · New order", body: `${orderNumber} was created for ${money(order.total_cents)}.`, route: orderUrl,
+      variables: { orderNumber, total: money(order.total_cents) },
+    };
   }
   if (delivery.event_type === "payment_approved") {
-    return { title: "Velle · Payment approved", body: `Payment for ${orderNumber} was approved.`, route: orderUrl };
+    return {
+      title: "Velle · Payment approved", body: `Payment for ${orderNumber} was approved.`, route: orderUrl,
+      variables: { orderNumber },
+    };
   }
 
   const submissionId = delivery.payload.paymentSubmissionId;
@@ -54,6 +60,10 @@ async function notificationContent(client: SupabaseClient, delivery: BaseDeliver
       title: "Velle · Payment mismatch",
       body: `${orderNumber} reported ${money(submission.amount_reported_cents)} via ${method}; expected ${money(order.total_cents)}.`,
       route,
+      variables: {
+        orderNumber, reportedAmount: money(submission.amount_reported_cents),
+        method, expectedAmount: money(order.total_cents),
+      },
     };
   }
   if (delivery.event_type === "payment_submission_created") {
@@ -61,9 +71,22 @@ async function notificationContent(client: SupabaseClient, delivery: BaseDeliver
       title: "Velle · Payment submitted",
       body: `Payment submitted for ${orderNumber}: ${money(submission.amount_reported_cents)} via ${method}.`,
       route,
+      variables: { orderNumber, reportedAmount: money(submission.amount_reported_cents), method },
     };
   }
   throw new Error("unsupported_notification_event");
+}
+
+async function applyHarkTemplate(
+  client: SupabaseClient, eventType: string,
+  fallback: { title: string; body: string; variables: Record<string,string> },
+) {
+  const { data, error } = await client.from("notification_hark_templates")
+    .select("title_template,body_template").eq("event_type",eventType).single();
+  if (error || !data) throw new Error("hark_template_unavailable");
+  const render = (template: string) =>
+    template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (token, key: string) => fallback.variables[key] ?? token);
+  return { title: render(data.title_template), body: render(data.body_template) };
 }
 
 async function updateFailure(
@@ -136,13 +159,14 @@ async function processHark(client: SupabaseClient, baseUrl: string, webhookUrl: 
   for (const delivery of deliveries) {
     try {
       const content = await notificationContent(client, delivery);
+      const harkContent = await applyHarkTemplate(client, delivery.event_type, content);
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           "Idempotency-Key": `velle-${delivery.outbox_id}`,
         },
-        body: JSON.stringify({ title: content.title, body: content.body, url: `${baseUrl}${content.route}` }),
+        body: JSON.stringify({ title: harkContent.title, body: harkContent.body, url: `${baseUrl}${content.route}` }),
         signal: AbortSignal.timeout(10_000),
       });
       const result = await safeJson(response) as HarkResult;

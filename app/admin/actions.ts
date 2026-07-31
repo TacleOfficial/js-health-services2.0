@@ -166,6 +166,41 @@ const notificationTestContent: Record<z.infer<typeof notificationEventSchema>, {
   payment_amount_mismatch: { title: "Velle · Test payment mismatch", body: "TEST-1001 reported $100.00 via test method; expected $125.00." },
   payment_approved: { title: "Velle · Test payment approved", body: "Payment for TEST-1001 was approved." },
 };
+const notificationTemplateVariables: Record<z.infer<typeof notificationEventSchema>, string[]> = {
+  order_created: ["orderNumber","total"],
+  payment_submission_created: ["orderNumber","reportedAmount","method"],
+  payment_amount_mismatch: ["orderNumber","reportedAmount","method","expectedAmount"],
+  payment_approved: ["orderNumber"],
+};
+const notificationTestVariables: Record<string,string> = {
+  orderNumber: "TEST-1001", total: "$125.00", reportedAmount: "$100.00",
+  expectedAmount: "$125.00", method: "test method",
+};
+const renderNotificationTemplate = (template: string) =>
+  template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (token, key: string) => notificationTestVariables[key] ?? token);
+
+export async function saveHarkNotificationTemplate(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
+  try {
+    await requireSuperAdmin();
+    const eventType = notificationEventSchema.parse(value(data, "event_type"));
+    const title = z.string().trim().min(1, "Enter a notification title.").max(80, "Titles are limited to 80 characters.").parse(value(data, "title_template"));
+    const body = z.string().trim().min(1, "Enter a notification body.").max(2000, "Bodies are limited to 2,000 characters.").parse(value(data, "body_template"));
+    const allowed = new Set(notificationTemplateVariables[eventType]);
+    const placeholders = [...`${title} ${body}`.matchAll(/\{([^{}]+)\}/g)].map(match => match[1]);
+    const unknown = placeholders.find(placeholder => !allowed.has(placeholder));
+    if (unknown) throw new Error(`{${unknown}} is not available for this event.`);
+    const supabase = await createSupabaseServerClient();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.rpc("admin_update_hark_template", {
+      p_event_type: eventType, p_title_template: title, p_body_template: body,
+    });
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin");
+    return { ok: true, message: "Hark notification saved." };
+  } catch (error) {
+    return smsActionError(error);
+  }
+}
 
 export async function sendNotificationRouteTest(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
   try {
@@ -202,10 +237,17 @@ export async function sendNotificationRouteTest(_state: AdminSmsActionState, dat
       if (parsed.protocol !== "https:" || parsed.hostname !== "hark.ryan.ceo" || !/^\/hooks\/[^/]+$/.test(parsed.pathname)) {
         throw new Error("HARK_WEBHOOK_URL is not a valid Hark webhook.");
       }
+      const { data: template, error: templateError } = await db.from("notification_hark_templates")
+        .select("title_template,body_template").eq("event_type",eventType).single();
+      if (templateError || !template) throw new Error("The Hark notification template is unavailable.");
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: { "content-type": "application/json", "Idempotency-Key": `velle-test-${crypto.randomUUID()}` },
-        body: JSON.stringify({ title: content.title, body: `[TEST] ${content.body}`, url: testUrl }),
+        body: JSON.stringify({
+          title: renderNotificationTemplate(template.title_template),
+          body: `[TEST] ${renderNotificationTemplate(template.body_template)}`,
+          url: testUrl,
+        }),
         cache: "no-store",
         signal: AbortSignal.timeout(10_000),
       });
