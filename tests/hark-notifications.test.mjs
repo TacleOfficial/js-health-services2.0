@@ -39,6 +39,18 @@ test("worker sends privacy-minimized one-shot Hark notifications independently",
   assert.match(worker, /const hark: ChannelStats/);
   assert.match(worker, /notification_hark_templates/);
   assert.match(worker, /applyHarkTemplate/);
+  assert.match(worker, /`\/admin\/orders\/\$\{orderId\}`/);
+});
+
+test("order notifications deep-link to a protected admin order detail", async () => {
+  const [page, list] = await Promise.all([
+    read("app/admin/orders/[orderId]/page.tsx"),
+    read("app/admin/page.tsx"),
+  ]);
+  assert.match(page, /requireAdmin\(route\)/);
+  assert.match(page, /order_items\(\*\)/);
+  assert.match(page, /payment_submissions/);
+  assert.match(list, /`\/admin\/orders\/\$\{order\.id\}`/);
 });
 
 test("super-admin UI itemizes independent SMS and Hark event switches", async () => {

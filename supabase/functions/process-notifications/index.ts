@@ -33,7 +33,7 @@ async function notificationContent(client: SupabaseClient, delivery: BaseDeliver
     .from("orders").select("order_number,total_cents").eq("id", orderId).single();
   if (orderError || !order) throw new Error("order_unavailable");
   const orderNumber = delivery.payload.orderNumber ?? order.order_number;
-  const orderUrl = `/admin?view=orders&q=${encodeURIComponent(orderNumber)}`;
+  const orderUrl = `/admin/orders/${orderId}`;
 
   if (delivery.event_type === "order_created") {
     return {
