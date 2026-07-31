@@ -22,7 +22,7 @@ function RouteToggle({ eventType, channel, enabled, label }: {
       disabled={pending}
       className={enabled ? "active" : ""}
     ><span/>{pending ? "Saving…" : enabled ? "On" : "Off"}</button>
-    {state.message && <small className={state.ok ? "" : "error"} role="status">{state.message}</small>}
+    {!state.ok && state.message && <small className="error" role="alert">{state.message}</small>}
   </form>;
 }
 
