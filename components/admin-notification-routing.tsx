@@ -6,6 +6,7 @@ import { Dialog } from "radix-ui";
 import { saveHarkNotificationTemplate, sendNotificationRouteTest, setNotificationRoute, type AdminSmsActionState } from "@/app/admin/actions";
 import { Button } from "@/components/ui";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { HarkNotificationImageUploader } from "@/components/hark-notification-image-uploader";
 
 type Route = {
   eventType: string; label: string; sms: boolean; hark: boolean;
@@ -36,6 +37,7 @@ function RouteToggle({ eventType, channel, enabled, label }: {
 function TestActions({ route }: { route: Route }) {
   const { eventType, label } = route;
   const [editOpen, setEditOpen] = useState(false);
+  const [imageUrl,setImageUrl] = useState(route.harkImageUrl);
   const [state, action, pending] = useActionState(sendNotificationRouteTest, initialState);
   const [editState, editAction, editPending] = useActionState(saveHarkNotificationTemplate, initialState);
   const send = (channel: "sms"|"hark") => {
@@ -67,7 +69,8 @@ function TestActions({ route }: { route: Route }) {
           <input type="hidden" name="event_type" value={eventType}/>
           <label>Title<input name="title_template" defaultValue={route.harkTitle} maxLength={80} required/></label>
           <label>Body<textarea name="body_template" defaultValue={route.harkBody} maxLength={2000} rows={5} required/></label>
-          <label>Image URL <span>Optional public HTTPS image used as the Hark notification avatar.</span><input name="image_url" type="url" inputMode="url" defaultValue={route.harkImageUrl} maxLength={2048} placeholder="https://example.com/notification.png"/></label>
+          <label>Image URL <span>Upload an image below or enter another public HTTPS URL.</span><input name="image_url" type="url" inputMode="url" value={imageUrl} onChange={event => setImageUrl(event.target.value)} maxLength={2048} placeholder="https://example.com/notification.png"/></label>
+          <HarkNotificationImageUploader eventType={eventType} url={imageUrl} onChange={setImageUrl}/>
           <div className="hark-template-variables">
             <span>Available placeholders</span>
             <div>{route.variables.map(variable => <code key={variable}>{`{${variable}}`}</code>)}</div>

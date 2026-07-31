@@ -141,6 +141,36 @@ const notificationEventSchema = z.enum([
 ]);
 const notificationChannelSchema = z.enum(["sms", "hark"]);
 
+export async function uploadHarkNotificationImage(_state: ProductMediaUploadResult, data: FormData): Promise<ProductMediaUploadResult> {
+  try {
+    await requireSuperAdmin();
+    const eventType = notificationEventSchema.parse(value(data, "event_type"));
+    const file = data.get("file");
+    if (!(file instanceof File) || file.size === 0) return { ok:false, message:"Choose an image to upload." };
+    if (file.size > 5_242_880) return { ok:false, message:"Images must be 5 MB or smaller." };
+    const types: Record<string,{ext:string;signature:number[]}> = {
+      "image/jpeg": { ext:"jpg", signature:[0xff,0xd8,0xff] },
+      "image/png": { ext:"png", signature:[0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a] },
+      "image/webp": { ext:"webp", signature:[0x52,0x49,0x46,0x46] },
+    };
+    const spec = types[file.type];
+    if (!spec) return { ok:false, message:"Use a JPG, PNG, or WebP image." };
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const signatureOk = spec.signature.every((byte,index) => bytes[index]===byte)
+      && (file.type!=="image/webp" || String.fromCharCode(...bytes.slice(8,12))==="WEBP");
+    if (!signatureOk) return { ok:false, message:"The file contents do not match its image type." };
+    const path = `notifications/${eventType}/${crypto.randomUUID()}.${spec.ext}`;
+    const db = createSupabaseServiceClient();
+    const { error } = await db.storage.from("product-media").upload(path,bytes,{
+      contentType:file.type,cacheControl:"31536000",upsert:false,
+    });
+    if (error) return { ok:false, message:error.message };
+    return { ok:true, path, url:db.storage.from("product-media").getPublicUrl(path).data.publicUrl };
+  } catch (error) {
+    return { ok:false, message:error instanceof Error ? error.message : "Unable to upload the Hark image." };
+  }
+}
+
 export async function setNotificationRoute(_state: AdminSmsActionState, data: FormData): Promise<AdminSmsActionState> {
   try {
     await requireSuperAdmin();

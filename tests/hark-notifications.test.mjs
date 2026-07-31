@@ -102,4 +102,6 @@ test("optional Hark template images are HTTPS constrained and provider-ready", a
   assert.match(sql, /admin_update_hark_template\(text,text,text,text\)/);
   assert.match(actions, /Image URLs must use HTTPS/);
   assert.match(actions, /\{ imageUrl: template\.image_url \}/);
+  assert.match(actions, /uploadHarkNotificationImage/);
+  assert.match(actions, /`notifications\/\$\{eventType\}\/\$\{crypto\.randomUUID\(\)\}/);
 });
