@@ -95,7 +95,7 @@ export function AdminNotificationRouting({ routes }: { routes: Route[] }) {
       <span><strong>{route.label}</strong><small>{route.eventType}</small></span>
       <RouteToggle eventType={route.eventType} channel="sms" enabled={route.sms} label={route.label}/>
       <RouteToggle eventType={route.eventType} channel="hark" enabled={route.hark} label={route.label}/>
-      <TestActions route={route}/>
+      <TestActions key={`${route.eventType}:${route.harkImageUrl}`} route={route}/>
     </div>)}
   </div>;
 }

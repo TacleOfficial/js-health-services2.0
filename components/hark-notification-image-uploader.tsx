@@ -69,11 +69,13 @@ export function HarkNotificationImageUploader({ eventType, url, onChange }: {
         </FileUploadItem>)}
       </FileUploadList>
     </FileUpload>
-    {url && !selected && <div className="product-file-row product-file-current">
-      <span className="product-file-thumbnail"><img src={url} alt="Current Hark notification"/></span>
-      <span className="product-file-metadata"><strong>Current notification image</strong><small>Public Hark avatar URL</small></span>
-      <button type="button" className="file-upload-action" onClick={() => onChange("")} aria-label="Remove Hark notification image"><Trash2/></button>
-    </div>}
+    {url && !selected && <figure className="hark-current-image-preview">
+      <div><img src={url} alt="Current Hark notification preview"/></div>
+      <figcaption>
+        <span><strong>Current notification image</strong><small>Saved public Hark image URL</small></span>
+        <button type="button" className="file-upload-action" onClick={() => onChange("")} aria-label="Remove Hark notification image" title="Remove image"><Trash2/></button>
+      </figcaption>
+    </figure>}
     {selected && <Button type="button" size="sm" onClick={upload} disabled={pending}>{pending ? <LoaderCircle className="file-upload-spinner"/> : <Upload/>}{pending ? "Uploading…" : url ? "Replace image" : "Upload image"}</Button>}
     {(clientError || state.message) && <p className="admin-product-error" role="alert">{clientError || state.message}</p>}
   </div>;
