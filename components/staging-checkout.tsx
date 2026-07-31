@@ -1,13 +1,14 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useTransition } from "react";
-import { Check, Info, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Check, ImageIcon, Info, LockKeyhole, Minus, Plus, ShieldCheck } from "lucide-react";
 import { Badge, Button, Card, Input, Separator } from "@/components/ui";
 import { createGuestStagingOrder, quoteProductionShipping, type ShippingRate } from "@/app/checkout/actions";
 import { formatUsd } from "@/lib/commerce/money";
 import type { PaymentMethod } from "@/lib/commerce/types";
 
-type Line = { id:string; sku:string; productTitle:string; variantTitle:string; priceCents:number };
+type Line = { id:string; sku:string; productTitle:string; variantTitle:string; priceCents:number; imageUrl:string; imageAlt:string };
 type Details = { firstName:string;lastName:string;email:string;line1:string;line2:string;city:string;state:string;postalCode:string;phone:string;eligibilityAccepted:boolean };
 const empty: Details = { firstName:"",lastName:"",email:"",line1:"",line2:"",city:"",state:"",postalCode:"",phone:"",eligibilityAccepted:false };
 
@@ -25,6 +26,7 @@ export function StagingCheckout({ ready, basket, mode, shippingMode, fixedShippi
   const total=subtotal+shipping;
   const readyToStart=mode==="staging"?Object.values(ready).every(Boolean)&&basket.length===2:basket.length>0;
   const update=<K extends keyof Details>(key:K,value:Details[K])=>setDetails(current=>({...current,[key]:value}));
+  const setLineQuantity=(id:string,quantity:number)=>setQuantities(current=>({...current,[id]:Math.max(0,Math.min(20,Number.isFinite(quantity)?Math.floor(quantity):0))}));
 
   function continueCheckout() {
     if(mode==="staging"||shippingMode!=="shippo"){setStep("payment");return;}
@@ -49,7 +51,27 @@ export function StagingCheckout({ ready, basket, mode, shippingMode, fixedShippi
       {error&&<div className="demo-alert" role="alert"><Info/><div><strong>Unable to continue</strong><p>{error}</p></div></div>}
       {step==="details"?<Card className="commerce-form-card"><form onSubmit={e=>{e.preventDefault();continueCheckout();}}>
         <div className="form-section-head"><span className="eyebrow">CONTACT & DELIVERY</span><Badge tone={mode==="production"?"verified":"warm"}>{mode.toUpperCase()}</Badge></div>
-        {mode==="production"&&<div className="production-cart"><strong>Cart contents</strong>{basket.map(line=><label key={line.id}><span>{line.productTitle} · {line.variantTitle} ({formatUsd(line.priceCents)})</span><Input aria-label={`${line.productTitle} quantity`} type="number" min="0" max="20" value={quantities[line.id]||0} onChange={e=>setQuantities(q=>({...q,[line.id]:Number(e.target.value)}))}/></label>)}</div>}
+        {mode==="production"&&<>
+          <div className="production-cart">
+            <strong className="production-cart-title">Cart contents</strong>
+            <div className="production-cart-list">{basket.map(line=>{
+              const quantity=quantities[line.id]||0;
+              return <div className="production-cart-row" key={line.id}>
+                <div className="production-cart-product">
+                  <span className="production-cart-thumbnail">{line.imageUrl?<img src={line.imageUrl} alt={line.imageAlt}/>:<ImageIcon aria-hidden="true"/>}</span>
+                  <span className="production-cart-copy"><strong>{line.productTitle}</strong><small>{line.variantTitle}</small></span>
+                </div>
+                <div className="production-quantity" role="group" aria-label={`${line.productTitle} quantity`}>
+                  <Button type="button" size="icon" variant="outline" onClick={()=>setLineQuantity(line.id,quantity-1)} disabled={quantity===0} aria-label={`Decrease ${line.productTitle} quantity`}><Minus/></Button>
+                  <Input aria-label={`${line.productTitle} quantity value`} type="number" min="0" max="20" value={quantity} onChange={e=>setLineQuantity(line.id,Number(e.target.value))}/>
+                  <Button type="button" size="icon" variant="outline" onClick={()=>setLineQuantity(line.id,quantity+1)} disabled={quantity===20} aria-label={`Increase ${line.productTitle} quantity`}><Plus/></Button>
+                </div>
+                <strong className="production-cart-price">{formatUsd(line.priceCents*quantity)}</strong>
+              </div>;
+            })}</div>
+          </div>
+          <Separator className="production-cart-separator"/>
+        </>}
         <div className="form-grid">
           <label>First name<Input required value={details.firstName} onChange={e=>update("firstName",e.target.value)}/></label><label>Last name<Input required value={details.lastName} onChange={e=>update("lastName",e.target.value)}/></label>
           <label className="wide">Email<Input required type="email" value={details.email} onChange={e=>update("email",e.target.value)}/></label><label className="wide">Street address<Input required value={details.line1} onChange={e=>update("line1",e.target.value)}/></label>
