@@ -14,11 +14,11 @@ test("defines the complete Velle storefront experience", async () => {
     "BEFORE / INTAKE",
     "AFTER / DOCUMENTED",
     "Research products, documented by batch",
-    "Add to demo cart",
+    "Add to my cart",
     "Verify a batch",
     "Documentation, explained with restraint",
     "Clear answers, direct paths",
-    "Demo checkout",
+    "Checkout",
   ]) {
     assert.match(storefront, new RegExp(text));
   }

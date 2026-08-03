@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const image = `${protocol}://${host}/og.png`;
   return {
     title: { default: "Velle Research — documented by batch", template: "%s — Velle Research" },
-    description: "A fictional premium research-commerce interface demonstrating batch transparency, restrained clinical design, and a safe demo checkout.",
+    description: "A fictional premium research-commerce interface demonstrating batch transparency, restrained clinical design, and a safe checkout.",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: { title: "Velle Research — Precision begins with verification", description: "A fictional research-commerce interface concept.", type: "website", images: [{ url: image, width: 1200, height: 630 }] },
     twitter: { card: "summary_large_image", title: "Velle Research — Precision begins with verification", description: "A fictional research-commerce interface concept.", images: [image] },
