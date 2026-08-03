@@ -43,15 +43,17 @@ test("active products require both accessible images and rich context", async ()
 });
 
 test("product context is allowlisted and public PDP prefers database content", async () => {
-  const [context, route, storefront] = await Promise.all([
+  const [context, route, catalog, storefront] = await Promise.all([
     read("lib/product-context.ts"),
     read("app/[...slug]/page.tsx"),
+    read("lib/catalog-data.ts"),
     read("components/storefront.tsx"),
   ]);
   assert.doesNotMatch(context, /script|iframe|video/);
   assert.match(context, /Only secure links are allowed/);
   assert.match(context, /product-media/);
-  assert.match(route, /\.eq\("status","active"\)/);
+  assert.match(catalog, /\.eq\("status","active"\)/);
+  assert.match(catalog, /productContextSchema\.safeParse/);
   assert.match(route, /slug\[0\]==="shop"/);
   assert.match(storefront, /ShopPage databaseProducts=\{databaseProducts\}/);
   assert.match(storefront, /const catalog=databaseProducts/);

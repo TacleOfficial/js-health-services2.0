@@ -142,9 +142,8 @@ function BeforeAfterComparison() {
   </section>;
 }
 
-function HomePage() {
-  const hero = products[0];
-  const { compare } = useDemo();
+function HomePage({databaseProducts=[]}:{databaseProducts?:Product[]}) {
+  const hero = databaseProducts[0] ?? products[0];
   return <main>
     <section className="hero container">
       <div className="hero-copy"><Badge>DOCUMENTED RESEARCH MATERIALS</Badge><h1>Precision begins with verification</h1><p>Fictional research products presented with clear batch records, direct specifications, and no unsupported promises.</p><div className="hero-actions"><Button asChild size="lg"><Link href="/get-started">Find your Velle match <ArrowRight /></Link></Button><Button asChild variant="outline" size="lg"><Link href="/shop">Browse products</Link></Button><Button asChild variant="ghost" size="lg"><Link href="/batch">Verify a demo batch</Link></Button></div><div className="hero-proof"><span><FileCheck2 /> Batch-linked records</span><span><ShieldCheck /> Transparent status</span><span><PackageCheck /> Documented handling</span></div></div>
@@ -153,7 +152,7 @@ function HomePage() {
     <section className="trust-band"><div className="container trust-grid"><div><span>01</span><strong>Identity</strong><p>Keep each record connected to the material it describes.</p></div><div><span>02</span><strong>Documentation</strong><p>Surface methods, dates, status, and limitations in context.</p></div><div><span>03</span><strong>Traceability</strong><p>Follow a fictional batch from release through the demo order.</p></div></div></section>
     <section className="system-image-section container"><Image src="/velle-system.png" width={1536} height={1024} unoptimized alt="Velle fictional vial and packaging system arranged on a stone plinth" /><div><span className="eyebrow">PRODUCT SYSTEM / FICTIONAL</span><strong>Material, packaging, and record—considered together.</strong></div></section>
     <BeforeAfterComparison />
-    <section className="section container"><div className="section-head"><div><span className="eyebrow">FEATURED MATERIALS</span><h2>A considered research catalog</h2></div><Link href="/shop" className="text-link">View all 12 <ArrowRight /></Link></div><CompareSelectionBar selectedIds={compare}/><div className="product-grid">{products.slice(0,4).map(p => <ProductCard key={p.id} product={p} />)}</div></section>
+    <section className="section container"><div className="section-head"><div><span className="eyebrow">FEATURED MATERIALS</span><h2>A considered research catalog</h2></div><Link href="/shop" className="text-link">View all {databaseProducts.length} <ArrowRight /></Link></div>{!databaseProducts.length?<div className="account-empty"><h3>No featured materials</h3><p>Active catalog products will appear here.</p></div>:<div className="product-grid">{databaseProducts.slice(0,4).map(p => <ProductCard key={p.id} product={p} />)}</div>}</section>
     <section className="section quality-feature"><div className="container split"><div className="quality-panel"><span className="eyebrow">DEMO QUALITY SYSTEM</span><h2>See the record behind the label</h2><p>Every status and result in this prototype is marked as fictional. The interface demonstrates how genuine documentation could remain connected to product, batch, and order.</p><Button asChild variant="outline"><Link href="/quality">Explore the process</Link></Button></div><MockReport /></div></section>
     <section className="section container"><div className="editorial-intro"><span className="eyebrow">RESEARCH NOTES</span><h2>Clarity before interpretation</h2><p>Short primers explain how to read documentation without turning analytical data into human-use claims.</p></div><div className="article-grid">{articles.slice(0,3).map((a,i)=><ArticleCard key={a.slug} article={a} index={i+1}/>)}</div></section>
     <FaqSection />
@@ -277,7 +276,7 @@ function RoutedDesignerDocument({document,path,databaseProduct,databaseProducts}
   const parts=path.replace(/^\/|\/$/g,"").split("/");
   return <>{document.blocks.filter(block=>block.visible).map(block=>{
     if(block.type!=="locked")return <DesignerPageRenderer document={{...document,blocks:[block]}} key={block.id}/>;
-    if(block.component==="legacy_home")return <HomePage key={block.id}/>;
+    if(block.component==="legacy_home")return <HomePage databaseProducts={databaseProducts} key={block.id}/>;
     if(block.component==="shop")return <ShopPage databaseProducts={databaseProducts} key={block.id}/>;
     if(block.component==="quality")return <QualityPage key={block.id}/>;
     if(block.component==="batch")return <BatchPage key={block.id}/>;
