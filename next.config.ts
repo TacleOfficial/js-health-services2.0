@@ -11,11 +11,18 @@ const nextConfig: NextConfig = {
     },
   },
   images: supabaseHostname ? {
-    remotePatterns: [{
-      protocol: "https",
-      hostname: supabaseHostname,
-      pathname: "/storage/v1/object/public/product-media/**",
-    }],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: supabaseHostname,
+        pathname: "/storage/v1/object/public/product-media/**",
+      },
+      {
+        protocol: "https",
+        hostname: supabaseHostname,
+        pathname: "/storage/v1/object/public/site-media/**",
+      },
+    ],
   } : undefined,
   async headers() {
     return [{
