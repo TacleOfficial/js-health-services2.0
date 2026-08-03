@@ -23,4 +23,5 @@ test("order archiving is reversible, audited, and removes orders from both admin
   assert.match(page, /orderListStatus === "archived"/);
   assert.match(control, /No order history will be deleted/);
   assert.match(control, /Restore order/);
+  assert.match(control, /MoreHorizontal \/> Actions/);
 });

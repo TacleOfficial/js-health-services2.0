@@ -1,27 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, ArchiveRestore } from "lucide-react";
+import { Archive, ArchiveRestore, MoreHorizontal } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { setAdminOrderArchived } from "@/app/admin/actions";
 import { Button } from "@/components/ui";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export function AdminOrderArchiveAction({
   orderId,
   orderNumber,
   archived,
+  menu = false,
 }: {
   orderId: string;
   orderNumber: string;
   archived: boolean;
+  menu?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const Icon = archived ? ArchiveRestore : Archive;
 
   return <AlertDialog.Root open={open} onOpenChange={setOpen}>
-    <AlertDialog.Trigger asChild>
+    {menu ? <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" aria-label={`Actions for ${orderNumber}`}>
+          <MoreHorizontal /> Actions
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem destructive={!archived} onSelect={() => setOpen(true)}>
+          <Icon /> {archived ? "Restore order" : "Archive order"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu> : <AlertDialog.Trigger asChild>
       <Button type="button" variant="outline"><Icon /> {archived ? "Restore order" : "Archive order"}</Button>
-    </AlertDialog.Trigger>
+    </AlertDialog.Trigger>}
     <AlertDialog.Portal>
       <AlertDialog.Overlay className="dialog-overlay" />
       <AlertDialog.Content className="admin-confirm-dialog">
