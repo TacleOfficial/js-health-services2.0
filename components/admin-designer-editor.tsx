@@ -111,12 +111,54 @@ function BlockFields({ block, onChange }: { block: DesignerBlock; onChange: (blo
   </div>;
 }
 
+type NavigationItem = GlobalDocument["navigation"][number];
+
+function SortableNavigationItem({ item, onChange, onRemove }: {
+  item: NavigationItem;
+  onChange: (item: NavigationItem) => void;
+  onRemove: () => void;
+}) {
+  const sortable = useSortable({ id: item.id });
+  return <article ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }} className="designer-navigation-item">
+    <button type="button" className="designer-navigation-grip" {...sortable.attributes} {...sortable.listeners} aria-label={`Move ${item.label}`}><GripVertical /></button>
+    <div className="designer-navigation-fields">
+      <label>Label<Input value={item.label} maxLength={60} onChange={event => onChange({ ...item, label: event.target.value })}/></label>
+      <label>Destination<Input value={item.href} maxLength={500} placeholder="/shop" onChange={event => onChange({ ...item, href: event.target.value })}/></label>
+      <div className="designer-navigation-visibility">
+        <label className="designer-check"><input type="checkbox" checked={item.desktop} onChange={event => onChange({ ...item, desktop: event.target.checked })}/> Desktop</label>
+        <label className="designer-check"><input type="checkbox" checked={item.mobile} onChange={event => onChange({ ...item, mobile: event.target.checked })}/> Mobile</label>
+      </div>
+    </div>
+    <button type="button" className="designer-navigation-remove" onClick={onRemove} aria-label={`Remove ${item.label}`}><Trash2 /></button>
+  </article>;
+}
+
+function NavigationEditor({ items, onChange }: { items: NavigationItem[]; onChange: (items: NavigationItem[]) => void }) {
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const onDragEnd = (event: DragEndEvent) => {
+    if (!event.over || event.active.id === event.over.id) return;
+    const from = items.findIndex(item => item.id === event.active.id);
+    const to = items.findIndex(item => item.id === event.over?.id);
+    onChange(arrayMove(items, from, to));
+  };
+  return <div className="designer-navigation-editor">
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={items.map(item => item.id)} strategy={verticalListSortingStrategy}>
+        {items.map(item => <SortableNavigationItem key={item.id} item={item}
+          onChange={next => onChange(items.map(current => current.id === item.id ? next : current))}
+          onRemove={() => onChange(items.filter(current => current.id !== item.id))}/>)}
+      </SortableContext>
+    </DndContext>
+    <Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, { id: crypto.randomUUID(), label: "New link", href: "/", desktop: true, mobile: true }])}><Plus /> Add navigation link</Button>
+  </div>;
+}
+
 function GlobalEditor({ document, onChange }: { document: GlobalDocument; onChange: (document: GlobalDocument) => void }) {
   const set = <K extends keyof GlobalDocument>(key: K, value: GlobalDocument[K]) => onChange({ ...document, [key]: value });
   return <div className="designer-global-editor">
     <section><span className="eyebrow">BRAND</span><h2>Navigation logo</h2><label>Wordmark<Input value={document.logoText} onChange={event => set("logoText", event.target.value)}/></label><label>Subtext<Input value={document.logoSubtext} onChange={event => set("logoSubtext", event.target.value)}/></label><label>Logo image URL<Input value={document.logoImage} onChange={event => set("logoImage", event.target.value)}/></label><DesignerMediaUploader onUploaded={url => set("logoImage", url)}/><label>Image alt text<Input value={document.logoAlt} onChange={event => set("logoAlt", event.target.value)}/></label><label>Logo destination<Input value={document.logoHref} onChange={event => set("logoHref", event.target.value)}/></label></section>
     <section><span className="eyebrow">BANNER</span><h2>Announcement</h2><label className="designer-check"><input type="checkbox" checked={document.banner.enabled} onChange={event => set("banner", { ...document.banner, enabled: event.target.checked })}/> Show banner</label><label>Message<Input value={document.banner.text} onChange={event => set("banner", { ...document.banner, text: event.target.value })}/></label><label>Optional destination<Input value={document.banner.href} onChange={event => set("banner", { ...document.banner, href: event.target.value })}/></label></section>
-    <section><span className="eyebrow">LINKS</span><h2>Primary navigation</h2><textarea rows={18} value={JSON.stringify(document.navigation, null, 2)} onChange={event => { try { set("navigation", JSON.parse(event.target.value)); } catch {} }}/><small>Links render in this order. Each item needs a unique UUID and desktop/mobile visibility values.</small></section>
+    <section><span className="eyebrow">LINKS</span><h2>Primary navigation</h2><p className="designer-navigation-help">Drag links into the order you want, then edit only their label, destination, and device visibility.</p><NavigationEditor items={document.navigation} onChange={items => set("navigation", items)}/></section>
   </div>;
 }
 
