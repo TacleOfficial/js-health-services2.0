@@ -24,8 +24,8 @@ export function AdminOrderArchiveAction({
   return <AlertDialog.Root open={open} onOpenChange={setOpen}>
     {menu ? <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" aria-label={`Actions for ${orderNumber}`}>
-          <MoreHorizontal /> Actions
+        <Button type="button" size="icon" variant="ghost" aria-label={`Actions for ${orderNumber}`}>
+          <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
