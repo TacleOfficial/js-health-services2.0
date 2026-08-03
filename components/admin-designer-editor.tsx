@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Copy, Eye, EyeOff, GripVertical, Monitor, Plus, Save, Smartphone, Tablet, Trash2 } from "lucide-react";
+import { Copy, Eye, EyeOff, GripVertical, Monitor, PanelRightClose, PanelRightOpen, Plus, Save, Smartphone, Tablet, Trash2 } from "lucide-react";
 import { Button, Input, Select } from "@/components/ui";
 import {
   designerBlockSchema,
@@ -127,6 +127,7 @@ export function AdminDesignerEditor({ entry, versions, isSuperAdmin, publishActi
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [dirty, setDirty] = useState(false);
   const [addType, setAddType] = useState<DesignerBlock["type"]>("hero");
+  const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [seo, setSeo] = useState({
     title: String(entry.seo.title ?? ""), description: String(entry.seo.description ?? ""),
     socialImage: String(entry.seo.socialImage ?? ""), indexable: entry.seo.indexable !== false,
@@ -172,7 +173,7 @@ export function AdminDesignerEditor({ entry, versions, isSuperAdmin, publishActi
       {state.message && <p className={state.ok ? "designer-success" : "designer-error"}>{state.message}</p>}
     </header>
 
-    {document.kind === "globals" ? <GlobalEditor document={document} onChange={updateDocument}/> : <div className="designer-columns">
+    {document.kind === "globals" ? <GlobalEditor document={document} onChange={updateDocument}/> : <div className={`designer-columns ${propertiesOpen ? "" : "properties-collapsed"}`}>
       <aside className="designer-blocks-panel">
         <div className="designer-panel-title"><span className="eyebrow">PAGE SECTIONS</span><strong>{page!.blocks.length} blocks</strong></div>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -183,11 +184,14 @@ export function AdminDesignerEditor({ entry, versions, isSuperAdmin, publishActi
               onRemove={() => { updateBlocks(page!.blocks.filter(item => item.id !== block.id)); setSelectedId(null); }}/>)}
           </SortableContext>
         </DndContext>
-        <div className="designer-add-block"><Select value={addType} onChange={event => setAddType(event.target.value as DesignerBlock["type"])}>{Object.entries(blockLabels).filter(([type]) => type !== "locked").map(([type, label]) => <option value={type} key={type}>{label}</option>)}</Select><Button variant="outline" onClick={() => { const block = newBlock(addType); updateBlocks([...page!.blocks, block]); setSelectedId(block.id); }}><Plus /> Add</Button></div>
+        <div className="designer-add-block"><Select value={addType} onChange={event => setAddType(event.target.value as DesignerBlock["type"])}>{Object.entries(blockLabels).filter(([type]) => type !== "locked").map(([type, label]) => <option value={type} key={type}>{label}</option>)}</Select><Button size="sm" variant="outline" onClick={() => { const block = newBlock(addType); updateBlocks([...page!.blocks, block]); setSelectedId(block.id); }}><Plus /> Add</Button></div>
       </aside>
       <section className={`designer-canvas ${device}`}><div><DesignerPageRenderer document={page!} preview/></div></section>
-      <aside className="designer-properties-panel">
-        <div className="designer-page-chrome"><span className="eyebrow">PAGE CHROME</span><label>Header<Select value={page!.headerMode} onChange={event => {
+      <aside className={`designer-properties-panel ${propertiesOpen ? "" : "collapsed"}`}>
+        <button className="designer-properties-toggle" type="button" onClick={() => setPropertiesOpen(open => !open)} aria-expanded={propertiesOpen} aria-label={propertiesOpen ? "Collapse properties sidebar" : "Expand properties sidebar"}>
+          {propertiesOpen ? <PanelRightClose /> : <PanelRightOpen />}<span>{propertiesOpen ? "Hide inspector" : "Show inspector"}</span>
+        </button>
+        {propertiesOpen && <div className="designer-properties-content"><div className="designer-page-chrome"><span className="eyebrow">PAGE CHROME</span><label>Header<Select value={page!.headerMode} onChange={event => {
           const mode=event.target.value as PageDocument["headerMode"];
           updateDocument({...page!,headerMode:mode,headerOverride:mode==="override"?(page!.headerOverride??{logoText:"VELLE",logoSubtext:"RESEARCH",logoImage:"",logoAlt:"Velle Research",logoHref:"/"}):page!.headerOverride});
         }}><option value="inherit">Use global</option><option value="override">Override</option><option value="hidden">Hidden</option></Select></label><label>Banner<Select value={page!.bannerMode} onChange={event => {
@@ -198,6 +202,7 @@ export function AdminDesignerEditor({ entry, versions, isSuperAdmin, publishActi
         {page!.bannerMode==="override"&&<><label className="designer-check"><input type="checkbox" checked={page!.bannerOverride?.enabled??true} onChange={event=>updateDocument({...page!,bannerOverride:{...page!.bannerOverride!,enabled:event.target.checked}})}/>Show banner</label><label>Banner text<Input value={page!.bannerOverride?.text??""} onChange={event=>updateDocument({...page!,bannerOverride:{...page!.bannerOverride!,text:event.target.value}})}/></label><label>Banner destination<Input value={page!.bannerOverride?.href??""} onChange={event=>updateDocument({...page!,bannerOverride:{...page!.bannerOverride!,href:event.target.value}})}/></label></>}
         </div>
         {selected ? <BlockFields block={selected} onChange={block => updateBlocks(page!.blocks.map(item => item.id === block.id ? block : item))}/> : <p>Select a section to edit its content.</p>}
+        </div>}
       </aside>
     </div>}
 
