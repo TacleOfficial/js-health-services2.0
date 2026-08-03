@@ -53,15 +53,14 @@ function Header({ globals, page }: { globals?: GlobalDocument; page?: PageDocume
 }
 
 function Footer() {
-  const { reset } = useDemo();
   return <footer className="footer"><div className="container">
     <div className="footer-top"><div><div className="wordmark footer-mark">VELLE<span>RESEARCH</span></div><p>Research materials, documented by batch.</p></div><div className="footer-columns">
       <div><strong>Shop /</strong><Link href="/shop">All products</Link><Link href="/batch">Batch lookup</Link><Link href="/quality">Testing</Link></div>
       <div><strong>Learn /</strong><Link href="/research">Research library</Link><Link href="/support">Support</Link><Link href="/quality">Quality process</Link></div>
-      <div><strong>Demo /</strong><Link href="/account">Account</Link><Link href="/cart">Cart</Link><button onClick={reset}>Reset demo</button></div>
+      <div><strong>Account /</strong><Link href="/account">Account</Link><Link href="/cart">Cart</Link></div>
     </div></div>
     <Separator />
-    <div className="footer-legal"><p><strong>RESEARCH USE ONLY.</strong> All products, batches, reports, laboratories, prices, and orders shown are fictional demonstration content. Not for human or veterinary use. No medical guidance or real purchasing is offered.</p><span>© 2026 Velle Research — interface concept</span></div>
+    <div className="footer-legal"><p><strong>RESEARCH USE ONLY.</strong> All products, batches, reports, laboratories, prices, and orders shown are fictional content. Not for human or veterinary use. No medical guidance or real purchasing is offered.</p><span>© 2026 Velle Research — interface concept</span></div>
   </div></footer>;
 }
 
