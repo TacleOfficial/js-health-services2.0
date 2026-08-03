@@ -588,3 +588,35 @@ export async function setAdminProductArchived(data: FormData) {
   revalidatePath(`/admin/products/${productId}`);
   if (archived) redirect("/admin?view=inventory");
 }
+
+export async function setAdminOrderArchived(data: FormData) {
+  const { supabase, user } = await requireAdmin();
+  const { data: allowed } = await supabase.rpc("has_admin_role", { allowed: ["manager", "super_admin"] });
+  if (!allowed) throw new Error("Manager authorization is required.");
+  const orderId = z.string().uuid().parse(value(data, "order_id"));
+  const archived = value(data, "archived") === "true";
+  const db = createSupabaseServiceClient();
+  const { data: order, error: orderError } = await db.from("orders")
+    .select("id,order_number,commerce_mode,archived_at")
+    .eq("id", orderId)
+    .single();
+  if (orderError || !order) throw new Error(orderError?.message ?? "Order not found.");
+
+  const archivedAt = archived ? new Date().toISOString() : null;
+  const { error } = await db.from("orders")
+    .update({ archived_at: archivedAt, archived_by: archived ? user.id : null, updated_at: new Date().toISOString() })
+    .eq("id", orderId);
+  if (error) throw new Error(error.message);
+  await db.from("audit_events").insert({
+    order_id: order.id,
+    event_type: archived ? "order.archived" : "order.restored",
+    actor_type: "admin",
+    actor_id: user.id,
+    commerce_mode: order.commerce_mode,
+    previous_value: { archived_at: order.archived_at },
+    new_value: { archived_at: archivedAt },
+  });
+  revalidatePath("/admin");
+  revalidatePath(`/admin/orders/${orderId}`);
+  redirect(archived ? "/admin?view=orders" : "/admin?view=orders&status=archived");
+}

@@ -12,6 +12,7 @@ import { AdminTaxRateForm } from "@/components/admin-tax-rate-form";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { AdminSmsControls } from "@/components/admin-sms-controls";
 import { AdminNotificationRouting } from "@/components/admin-notification-routing";
+import { AdminOrderArchiveAction } from "@/components/admin-order-archive-action";
 
 export const metadata: Metadata = { title: "Admin operations · Private staging", robots: { index: false, follow: false } };
 type View = "queue" | "orders" | "inventory" | "settings";
@@ -25,12 +26,13 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const filter = params.filter ?? "actionable";
   const queryText = params.q?.trim() ?? "";
   const inventoryStatus = ["active","draft","archived","all"].includes(params.status ?? "") ? params.status! : "active";
+  const orderListStatus = params.status === "archived" ? "archived" : "active";
   const [
     submissionsResult, ordersResult, inventoryResult, paymentConfigsResult, inventoryManagerResult, superAdminResult,
     runtime, readiness, taxRatesResult, shippingSettings,
   ] = await Promise.all([
-    supabase.from("payment_submissions").select("*,orders!inner(id,order_number,total_cents,customer_email,order_status,payment_status,fulfillment_status,commerce_mode,created_at)").order("submitted_at", { ascending: false }).limit(100),
-    supabase.from("orders").select("id,order_number,customer_email,total_cents,order_status,payment_status,fulfillment_status,commerce_mode,shipping_mode,shipping_cents,created_at,shippo_shipments(id,transaction_id),manual_shipments(id,status,tracking_number)").order("created_at", { ascending: false }).limit(100),
+    supabase.from("payment_submissions").select("*,orders!inner(id,order_number,total_cents,customer_email,order_status,payment_status,fulfillment_status,commerce_mode,created_at,archived_at)").is("orders.archived_at",null).order("submitted_at", { ascending: false }).limit(100),
+    supabase.from("orders").select("id,order_number,customer_email,total_cents,order_status,payment_status,fulfillment_status,commerce_mode,shipping_mode,shipping_cents,created_at,archived_at,shippo_shipments(id,transaction_id),manual_shipments(id,status,tracking_number)").order("created_at", { ascending: false }).limit(100),
     supabase.from("inventory_items").select("on_hand,committed,updated_at,product_variants!inner(id,sku,title,status,products!inner(id,title,status))").order("updated_at", { ascending: false }),
     supabase.from("payment_method_configs").select("method,display_name,destination_name,destination_value,is_active").order("display_name"),
     supabase.rpc("has_admin_role", { allowed: ["manager", "super_admin"] }),
@@ -102,6 +104,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     const product = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
     return inventoryStatus === "all" || product?.status === inventoryStatus;
   });
+  const orderRows = (ordersResult.data ?? []).filter(order =>
+    orderListStatus === "archived" ? Boolean(order.archived_at) : !order.archived_at
+  );
 
   return <CommerceShell admin><main className="admin-page container">
     <div className="admin-heading">
@@ -141,11 +146,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </Card>
     </>}
 
-    {view === "orders" && <Card className="admin-data-card"><div className="admin-data-head"><Package/><div><h2>Orders</h2><p>Staging and production records remain explicitly separated.</p></div></div><div className="admin-simple-table">{(ordersResult.data ?? []).map(order => <div className="admin-order-row" key={order.id}><Link href={`/admin/orders/${order.id}`}><div><strong>{order.order_number}</strong><small>{order.customer_email} · {new Date(order.created_at).toLocaleDateString()}</small></div><span>{formatUsd(order.total_cents)}</span><Badge tone={order.commerce_mode==="production"?"verified":"warm"}>{order.shipping_mode}</Badge><Badge tone={badgeTone(order.payment_status)}>{order.payment_status.replaceAll("_"," ")}</Badge><Badge tone={badgeTone(order.fulfillment_status)}>{order.fulfillment_status.replaceAll("_"," ")}</Badge><ArrowUpRight/></Link>
+    {view === "orders" && <Card className="admin-data-card"><div className="admin-data-head"><Package/><div><h2>Orders</h2><p>Staging and production records remain explicitly separated.</p></div></div><div className="inventory-filters" aria-label="Order visibility filters">{[["active","Active"],["archived","Archived"]].map(([key,label]) => <Link className={orderListStatus === key ? "active" : ""} href={`/admin?view=orders&status=${key}`} key={key}>{label}</Link>)}</div><div className="admin-simple-table">{orderRows.map(order => <div className="admin-order-row" key={order.id}><Link href={`/admin/orders/${order.id}`}><div><strong>{order.order_number}</strong><small>{order.customer_email} · {new Date(order.created_at).toLocaleDateString()}</small></div><span>{formatUsd(order.total_cents)}</span><Badge tone={order.commerce_mode==="production"?"verified":"warm"}>{order.shipping_mode}</Badge><Badge tone={badgeTone(order.payment_status)}>{order.payment_status.replaceAll("_"," ")}</Badge><Badge tone={badgeTone(order.fulfillment_status)}>{order.fulfillment_status.replaceAll("_"," ")}</Badge><ArrowUpRight/></Link>
       {order.commerce_mode==="production"&&order.shipping_mode==="shippo"&&order.payment_status==="verified"&&order.fulfillment_status==="ready_for_fulfillment"&&<form action={purchaseOrderLabel}><input type="hidden" name="order_id" value={order.id}/><input type="hidden" name="idempotency_key" value={crypto.randomUUID()}/><Button>Purchase Shippo label</Button></form>}
       {order.commerce_mode==="production"&&order.shipping_mode!=="shippo"&&order.payment_status==="verified"&&order.fulfillment_status==="ready_for_fulfillment"&&<form action={recordManualShipment} className="manual-shipment-form"><input type="hidden" name="order_id" value={order.id}/><input type="hidden" name="idempotency_key" value={crypto.randomUUID()}/><Input name="carrier" placeholder="Carrier" required/><Input name="tracking_number" placeholder="Tracking number" required/><Input name="tracking_url" type="url" placeholder="Tracking URL (optional)"/><Button>Mark shipped</Button></form>}
       {order.commerce_mode==="production"&&order.shipping_mode!=="shippo"&&order.fulfillment_status==="shipped"&&<form action={markManualShipmentDelivered}><input type="hidden" name="order_id" value={order.id}/><Button variant="outline">Mark delivered</Button></form>}
-    </div>)}</div>{!ordersResult.data?.length && <div className="admin-empty"><Package/><h3>No orders</h3><p>Orders will appear after checkout creates them.</p></div>}</Card>}
+      <div className="admin-order-archive-control"><AdminOrderArchiveAction orderId={order.id} orderNumber={order.order_number} archived={Boolean(order.archived_at)}/></div>
+    </div>)}</div>{!orderRows.length && <div className="admin-empty"><Package/><h3>No {orderListStatus} orders</h3><p>{orderListStatus === "archived" ? "Archived orders will appear here and can be restored." : "Orders will appear after checkout creates them."}</p></div>}</Card>}
 
     {view === "inventory" && <Card className="admin-data-card"><div className="admin-data-head admin-inventory-head"><Database/><div><h2>Inventory</h2><p>On-hand, committed, and currently available units.</p></div>{canManageInventory ? <Button asChild><Link href="/admin/products/new"><Plus/> Add product</Link></Button> : <Button disabled title="Manager role required"><Plus/> Add product</Button>}</div><div className="inventory-filters" aria-label="Inventory status filters">{["active","draft","archived","all"].map(status => <Link className={inventoryStatus === status ? "active" : ""} href={`/admin?view=inventory&status=${status}`} key={status}>{status[0].toUpperCase()+status.slice(1)}</Link>)}</div><div className="inventory-table"><div><strong>Product / SKU</strong><strong>On hand</strong><strong>Committed</strong><strong>Available</strong><strong>Actions</strong></div>{inventoryRows.map(row => {
       const variant = Array.isArray(row.product_variants) ? row.product_variants[0] : row.product_variants;

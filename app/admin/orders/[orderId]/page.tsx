@@ -5,6 +5,7 @@ import { CommerceShell } from "@/components/commerce-shell";
 import { Badge, Button, Card } from "@/components/ui";
 import { requireAdmin } from "@/lib/account";
 import { formatUsd } from "@/lib/commerce/money";
+import { AdminOrderArchiveAction } from "@/components/admin-order-archive-action";
 
 const tone = (status: string) =>
   ["verified","completed","delivered","ready_for_fulfillment"].includes(status) ? "verified" as const : "warm" as const;
@@ -24,7 +25,11 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ ord
     <Link href="/admin?view=orders" className="admin-back"><ArrowLeft/>Back to orders</Link>
     <div className="admin-heading">
       <div><span className="eyebrow">ORDER DETAIL</span><h1>{order.order_number}</h1><p>Created {new Date(order.created_at).toLocaleString()} · {order.customer_email}</p></div>
-      <Badge tone={order.commerce_mode==="production"?"verified":"warm"}>{order.commerce_mode}</Badge>
+      <div className="admin-order-heading-actions">
+        {order.archived_at && <Badge tone="neutral">archived</Badge>}
+        <Badge tone={order.commerce_mode==="production"?"verified":"warm"}>{order.commerce_mode}</Badge>
+        <AdminOrderArchiveAction orderId={order.id} orderNumber={order.order_number} archived={Boolean(order.archived_at)} />
+      </div>
     </div>
     <div className="admin-order-detail-grid">
       <div>
