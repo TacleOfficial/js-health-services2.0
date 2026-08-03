@@ -18,30 +18,36 @@ import { ProductVisual } from "@/components/product-visual";
 import { calculateCartPricing } from "@/lib/product-finder/cart-pricing";
 import { productBundles } from "@/lib/product-finder/bundles";
 import { ProductContextRenderer } from "./product-context-renderer";
+import { DesignerPageRenderer } from "@/components/designer-page-renderer";
+import { type GlobalDocument, type PageDocument } from "@/lib/designer";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-function Header() {
+function Header({ globals, page }: { globals?: GlobalDocument; page?: PageDocument }) {
   const { cart } = useDemo();
   const count = cart.reduce((n, i) => n + i.quantity, 0);
+  const header = page?.headerMode === "override" && page.headerOverride ? { ...globals, ...page.headerOverride } : globals;
+  const banner = page?.bannerMode === "hidden" ? null : page?.bannerMode === "override" && page.bannerOverride ? page.bannerOverride : globals?.banner;
   return (
     <>
-      <div className="notice">DEMONSTRATION STOREFRONT · FICTIONAL RESEARCH MATERIALS · NO REAL ORDERS</div>
-      <header className="header">
+      {banner?.enabled && (banner.href ? <Link className="notice" href={banner.href}>{banner.text}</Link> : <div className="notice">{banner.text}</div>)}
+      {page?.headerMode !== "hidden" && <header className="header">
         <div className="container header-inner">
-          <Link href="/" className="wordmark" aria-label="Velle home">VELLE<span>RESEARCH</span></Link>
+          <Link href={header?.logoHref ?? "/"} className="wordmark" aria-label={header?.logoAlt || "Velle home"}>
+            {header?.logoImage ? <Image src={header.logoImage} alt={header.logoAlt || ""} width={180} height={48} className="designer-nav-logo"/> : <>{header?.logoText ?? "VELLE"}<span>{header?.logoSubtext ?? "RESEARCH"}</span></>}
+          </Link>
           <nav className="desktop-nav" aria-label="Primary navigation">
-            <Link href="/shop">Shop</Link><Link href="/quality">Testing & quality</Link><Link href="/batch">Batch lookup</Link><Link href="/research">Research</Link><Link href="/support">Support</Link>
+            {(globals?.navigation ?? []).filter(item => item.desktop).map(item => <Link href={item.href} key={item.id}>{item.label}</Link>)}
           </nav>
           <div className="header-actions">
             <Link href="/account" className="icon-link" aria-label="Demo account"><CircleUserRound /></Link>
             <Link href="/cart" className="icon-link cart-link" aria-label={`Cart with ${count} items`}><ShoppingBag /><span>{count}</span></Link>
             <Dialog.Root>
               <Dialog.Trigger asChild><button className="icon-link mobile-menu" aria-label="Open menu"><Menu /></button></Dialog.Trigger>
-              <Dialog.Portal><Dialog.Overlay className="dialog-overlay" /><Dialog.Content className="menu-sheet"><Dialog.Title className="sr-only">Menu</Dialog.Title><Dialog.Close className="sheet-close"><X /></Dialog.Close><div className="sheet-nav"><Link href="/shop">Shop</Link><Link href="/quality">Testing & quality</Link><Link href="/batch">Batch lookup</Link><Link href="/research">Research</Link><Link href="/support">Support</Link><Link href="/account">Demo account</Link></div><p className="micro">Research use only. This site is a fictional interface demonstration.</p></Dialog.Content></Dialog.Portal>
+              <Dialog.Portal><Dialog.Overlay className="dialog-overlay" /><Dialog.Content className="menu-sheet"><Dialog.Title className="sr-only">Menu</Dialog.Title><Dialog.Close className="sheet-close"><X /></Dialog.Close><div className="sheet-nav">{(globals?.navigation ?? []).filter(item => item.mobile).map(item => <Link href={item.href} key={item.id}>{item.label}</Link>)}<Link href="/account">Demo account</Link></div><p className="micro">Research use only. This site is a fictional interface demonstration.</p></Dialog.Content></Dialog.Portal>
             </Dialog.Root>
           </div>
         </div>
-      </header>
+      </header>}
     </>
   );
 }
@@ -268,11 +274,32 @@ function Spec({label,value}:{label:string;value:string}){return <div className="
 function EmptyState({title,text,action,href,actionLabel="Clear filters"}:{title:string;text:string;action?:()=>void;href?:string;actionLabel?:string}){return <Card className="empty-state"><HelpCircle/><h3>{title}</h3><p>{text}</p>{href?<Button asChild variant="outline"><Link href={href}>{actionLabel}</Link></Button>:action&&<Button variant="outline" onClick={action}>{actionLabel}</Button>}</Card>}
 function NotFound(){return <main><div className="container not-found"><span className="eyebrow">404 / NOT FOUND</span><h1>This record is not in the demonstration</h1><p>The route or identifier does not match the fictional prototype data.</p><Button asChild><Link href="/shop">Return to catalog</Link></Button></div></main>}
 
-function Router({path,databaseProduct,databaseProducts}:{path:string;databaseProduct?:Product;databaseProducts?:Product[]}) {
+function RoutedDesignerDocument({document,path,databaseProduct,databaseProducts}:{document:PageDocument;path:string;databaseProduct?:Product;databaseProducts?:Product[]}) {
+  const parts=path.replace(/^\/|\/$/g,"").split("/");
+  return <>{document.blocks.filter(block=>block.visible).map(block=>{
+    if(block.type!=="locked")return <DesignerPageRenderer document={{...document,blocks:[block]}} key={block.id}/>;
+    if(block.component==="legacy_home")return <HomePage key={block.id}/>;
+    if(block.component==="shop")return <ShopPage databaseProducts={databaseProducts} key={block.id}/>;
+    if(block.component==="quality")return <QualityPage key={block.id}/>;
+    if(block.component==="batch")return <BatchPage key={block.id}/>;
+    if(block.component==="research")return <ResearchPage slug={parts[1]} key={block.id}/>;
+    if(block.component==="support")return <SupportPage key={block.id}/>;
+    if(block.component==="product")return <ProductPage slug={parts[1]||""} databaseProduct={databaseProduct} key={block.id}/>;
+    if(block.component==="article")return <ResearchPage slug={parts[1]} key={block.id}/>;
+    if(block.component==="cart")return <CartPage key={block.id}/>;
+    if(block.component==="checkout")return <CheckoutPage key={block.id}/>;
+    if(block.component==="compare")return <ComparePage key={block.id}/>;
+    if(block.component==="account")return <AccountPage key={block.id}/>;
+    return <DesignerPageRenderer document={{...document,blocks:[block]}} key={block.id}/>;
+  })}</>;
+}
+
+function Router({path,databaseProduct,databaseProducts,designerPage,designerCustom}:{path:string;databaseProduct?:Product;databaseProducts?:Product[];designerPage?:PageDocument;designerCustom?:boolean}) {
+  if(designerPage&&(designerCustom||designerPage.blocks.length))return <RoutedDesignerDocument document={designerPage} path={path} databaseProduct={databaseProduct} databaseProducts={databaseProducts}/>;
   const clean=path.replace(/^\/|\/$/g,""); const parts=clean.split("/");
   if(!clean)return <HomePage/>; if(clean==="shop")return <ShopPage databaseProducts={databaseProducts}/>; if(parts[0]==="products")return <ProductPage slug={parts[1]||""} databaseProduct={databaseProduct}/>; if(clean==="batch")return <BatchPage/>; if(clean==="quality")return <QualityPage/>; if(parts[0]==="research")return <ResearchPage slug={parts[1]}/>; if(clean==="support")return <SupportPage/>; if(clean==="account")return <AccountPage/>; if(clean==="cart")return <CartPage/>; if(clean==="checkout")return <CheckoutPage/>; if(clean==="compare")return <ComparePage/>; return <NotFound/>;
 }
 
-export function Storefront({path,databaseProduct,databaseProducts}:{path:string;databaseProduct?:Product;databaseProducts?:Product[]}) {
-  return <Tooltip.Provider delayDuration={250}><Header/><Router path={path} databaseProduct={databaseProduct} databaseProducts={databaseProducts}/><Footer/><VerificationGate/></Tooltip.Provider>;
+export function Storefront({path,databaseProduct,databaseProducts,designerGlobals,designerPage,designerCustom=false}:{path:string;databaseProduct?:Product;databaseProducts?:Product[];designerGlobals?:GlobalDocument;designerPage?:PageDocument;designerCustom?:boolean}) {
+  return <Tooltip.Provider delayDuration={250}><Header globals={designerGlobals} page={designerPage}/><Router path={path} databaseProduct={databaseProduct} databaseProducts={databaseProducts} designerPage={designerPage} designerCustom={designerCustom}/><Footer/><VerificationGate/></Tooltip.Provider>;
 }

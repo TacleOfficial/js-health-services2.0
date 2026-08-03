@@ -112,10 +112,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     <div className="admin-heading">
       <div><span className="eyebrow">ADMIN OPERATIONS</span><h1>{view === "queue" ? "Verification queue" : view[0].toUpperCase() + view.slice(1)}</h1><p>Live staging records protected by Supabase roles and row-level security.</p></div>
     </div>
-    <nav className="admin-tabs" aria-label="Admin sections">
-      {[["queue","Review queue"],["orders","Orders"],["inventory","Inventory"],["settings","Settings"]].map(([key,label]) => <Link className={view === key ? "active" : ""} href={`/admin?view=${key}`} key={key}>{label}</Link>)}
-    </nav>
-
     {view === "queue" && <>
       <section className="admin-stats" aria-label="Queue summary">
         <Card><Clock3/><span>Awaiting review</span><strong>{(submissionsResult.data ?? []).filter(row => ["submitted","under_review","possible_duplicate"].includes(row.status)).length}</strong><small>Actionable submissions</small></Card>
