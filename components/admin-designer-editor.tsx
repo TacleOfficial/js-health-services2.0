@@ -47,7 +47,7 @@ type Props = {
   };
   versions: Version[];
   isSuperAdmin: boolean;
-  publishAction: (formData: FormData) => void | Promise<void>;
+  publishAction: (previous: DesignerActionState, formData: FormData) => Promise<DesignerActionState>;
   rollbackAction: (formData: FormData) => void | Promise<void>;
   unpublishAction: (formData: FormData) => void | Promise<void>;
   deleteAction: (formData: FormData) => void | Promise<void>;
@@ -175,6 +175,7 @@ export function AdminDesignerEditor({ entry, versions, isSuperAdmin, publishActi
     socialImage: String(entry.seo.socialImage ?? ""), indexable: entry.seo.indexable !== false,
   });
   const [state, saveAction, pending] = useActionState(saveDesignerDraft, initialState);
+  const [publishState, publishFormAction, publishPending] = useActionState(publishAction, initialState);
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const page = document.kind === "page" ? document : null;
   const selected = page?.blocks.find(block => block.id === selectedId);
@@ -209,10 +210,13 @@ export function AdminDesignerEditor({ entry, versions, isSuperAdmin, publishActi
       <div className="designer-toolbar-actions">
         {page && <Button asChild variant="outline"><a href={`/admin/designer/${entry.contentKey}/preview`} target="_blank" rel="noreferrer"><Eye /> Full preview</a></Button>}
         <form action={saveAction}><input type="hidden" name="entry_id" value={entry.id}/><input type="hidden" name="kind" value={entry.kind}/><input type="hidden" name="revision" value={revision}/><input type="hidden" name="document" value={serialized}/><input type="hidden" name="seo" value={JSON.stringify(seo)}/><Button disabled={pending || !dirty}><Save /> {pending ? "Saving…" : "Save draft"}</Button></form>
-        <form action={publishAction}><input type="hidden" name="entry_id" value={entry.id}/><Button disabled={!isSuperAdmin || dirty} title={dirty ? "Save the draft before publishing." : !isSuperAdmin ? "Super-admin role required." : ""}>Publish</Button></form>
+        <form action={publishFormAction} aria-busy={publishPending} aria-describedby="designer-publish-status"><input type="hidden" name="entry_id" value={entry.id}/><Button disabled={!isSuperAdmin || dirty || publishPending} title={dirty ? "Save the draft before publishing." : !isSuperAdmin ? "Super-admin role required." : ""}>{publishPending ? "Publishing…" : "Publish"}</Button></form>
         {entry.kind === "custom" && entry.publishedVersionId && <form action={unpublishAction}><input type="hidden" name="entry_id" value={entry.id}/><Button variant="outline" disabled={!isSuperAdmin}>Unpublish</Button></form>}
       </div>
       {state.message && <p className={state.ok ? "designer-success" : "designer-error"}>{state.message}</p>}
+      <p id="designer-publish-status" className={`designer-publish-status ${publishPending ? "pending" : publishState.message ? publishState.ok ? "success" : "error" : ""}`} role="status" aria-live="polite" aria-atomic="true">
+        {publishPending ? "Publishing changes…" : publishState.message}
+      </p>
     </header>
 
     {document.kind === "globals" ? <GlobalEditor document={document} onChange={updateDocument}/> : <div className={`designer-columns ${propertiesOpen ? "" : "properties-collapsed"}`}>

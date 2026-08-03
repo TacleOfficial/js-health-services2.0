@@ -244,6 +244,11 @@
 .designer-device-switcher svg { width: 16px; }
 .designer-success,.designer-error { grid-column: 1/-1; margin: 0; padding: 9px 12px; border-radius: 7px; font-size: 12px; }
 .designer-success { background: #e4efe8; color: #345f47; }.designer-error { background: #f5e3e1; color: #8a352e; }
+.designer-publish-status { grid-column: 1/-1; min-height: 0; margin: 0; color: transparent; font-size: 12px; }
+.designer-publish-status.pending,.designer-publish-status.success,.designer-publish-status.error { padding: 9px 12px; border-radius: 7px; color: inherit; }
+.designer-publish-status.pending { background: #eef0ed; color: var(--q-muted); }
+.designer-publish-status.success { background: #e4efe8; color: #345f47; }
+.designer-publish-status.error { background: #f5e3e1; color: #8a352e; }
 .designer-columns { display: grid; grid-template-columns: 275px minmax(0,1fr) minmax(300px,340px); min-width: 0; min-height: calc(100vh - 196px); transition: grid-template-columns .2s ease; }
 .designer-columns.properties-collapsed { grid-template-columns: 275px minmax(0,1fr) 48px; }
 .designer-blocks-panel,.designer-properties-panel { min-width: 0; padding: 16px; background: #fff; }

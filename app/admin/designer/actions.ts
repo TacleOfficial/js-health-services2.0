@@ -54,21 +54,27 @@ export async function saveDesignerDraft(_previous: DesignerActionState, formData
   return { ok: true, message: "Draft saved.", revision: data.draft_revision };
 }
 
-export async function publishDesignerEntry(formData: FormData) {
-  const user = await requireDesignerAdmin(true);
-  const entryId = z.string().uuid().parse(formData.get("entry_id"));
-  const db = createSupabaseServiceClient();
-  const { data: entry, error } = await db.from("site_content_entries").select("*").eq("id", entryId).is("deleted_at", null).single();
-  if (error || !entry) throw new Error(error?.message ?? "Designer entry not found.");
-  const schema = entry.kind === "global" ? globalDocumentSchema : pageDocumentSchema;
-  schema.parse(entry.draft_document);
-  const { data: versionId, error: publishError } = await db.rpc("admin_publish_site_content", {
-    p_entry_id: entry.id, p_actor_id: user.id, p_restore_version_id: null,
-  });
-  if (publishError) throw new Error(publishError.message);
-  await db.from("audit_events").insert({ event_type: "designer.published", actor_type: "admin", actor_id: user.id, metadata: { entry_id: entry.id, version_id: versionId } });
-  revalidatePath("/", "layout");
-  revalidatePath("/admin/designer");
+export async function publishDesignerEntry(_previous: DesignerActionState, formData: FormData): Promise<DesignerActionState> {
+  try {
+    const user = await requireDesignerAdmin(true);
+    const entryId = z.string().uuid().parse(formData.get("entry_id"));
+    const db = createSupabaseServiceClient();
+    const { data: entry, error } = await db.from("site_content_entries").select("*").eq("id", entryId).is("deleted_at", null).single();
+    if (error || !entry) return fail(error?.message ?? "Designer entry not found.");
+    const schema = entry.kind === "global" ? globalDocumentSchema : pageDocumentSchema;
+    const parsed = schema.safeParse(entry.draft_document);
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "The draft is not ready to publish.");
+    const { data: versionId, error: publishError } = await db.rpc("admin_publish_site_content", {
+      p_entry_id: entry.id, p_actor_id: user.id, p_restore_version_id: null,
+    });
+    if (publishError) return fail(publishError.message);
+    await db.from("audit_events").insert({ event_type: "designer.published", actor_type: "admin", actor_id: user.id, metadata: { entry_id: entry.id, version_id: versionId } });
+    revalidatePath("/", "layout");
+    revalidatePath("/admin/designer");
+    return { ok: true, message: "Published successfully." };
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Publishing failed. Please try again.");
+  }
 }
 
 export async function rollbackDesignerEntry(formData: FormData) {
